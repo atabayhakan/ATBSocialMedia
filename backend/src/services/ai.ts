@@ -18,11 +18,14 @@ async function chatCompletion(
   opts: { temperature: number; json: boolean }
 ): Promise<string | null> {
   if (!aiEnabled) return null;
+  const fallbacks = env.AI_FALLBACK_MODELS.split(',').map((m) => m.trim()).filter(Boolean);
   try {
     const { data } = await axios.post(
       `${env.AI_BASE_URL}/chat/completions`,
       {
         model: env.AI_MODEL,
+        // OpenRouter: biri rate-limit'liyse sıradaki modele otomatik geçer
+        ...(fallbacks.length ? { models: [env.AI_MODEL, ...fallbacks] } : {}),
         messages: [{ role: 'user', content: prompt }],
         temperature: opts.temperature,
         ...(opts.json ? { response_format: { type: 'json_object' } } : {}),

@@ -10,6 +10,8 @@ const schema = z.object({
   AI_API_KEY: z.string().default(''),
   AI_BASE_URL: z.string().default('https://api.groq.com/openai/v1'),
   AI_MODEL: z.string().default('llama-3.3-70b-versatile'),
+  // Virgülle ayrılmış yedek modeller (OpenRouter'a özgü otomatik failover)
+  AI_FALLBACK_MODELS: z.string().default(''),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().min(8).default('change-me-in-production'),
   WA_QR_ENABLED: z.string().optional(),
