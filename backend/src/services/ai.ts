@@ -32,7 +32,8 @@ async function chatCompletion(
       },
       {
         headers: { Authorization: `Bearer ${env.AI_API_KEY}` },
-        timeout: 60_000,
+        // Ücretsiz modeller yoğunlukta yavaşlayabiliyor; 60sn sınırda kalıyor
+        timeout: 120_000,
       }
     );
     return data?.choices?.[0]?.message?.content ?? null;
