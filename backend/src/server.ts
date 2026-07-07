@@ -19,6 +19,7 @@ import canvaRoutes from './routes/canva';
 import socialRoutes from './routes/social';
 import newsRoutes from './routes/news';
 import compensationPlansRoutes from './routes/compensationPlans';
+import settingsRoutes from './routes/settings';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -65,9 +66,11 @@ app.use('/api/canva', canvaRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/compensation-plans', compensationPlansRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express hata middleware'ini 4 parametreden tanır, _next kaldırılamaz
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error({ err }, 'Unhandled error');
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });

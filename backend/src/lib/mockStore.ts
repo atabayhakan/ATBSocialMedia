@@ -17,6 +17,7 @@ class MockStore {
     WhatsAppReply: [],
     CanvaConfig: [],
     AuditLog: [],
+    CompensationPlan: [],
   };
 
   constructor() {
@@ -37,6 +38,7 @@ class MockStore {
       name: 'Demo Kullanıcı',
       role: 'OWNER',
       timezone: 'Europe/Istanbul',
+      defaultMode: 'APPROVAL',
       createdAt: now,
       updatedAt: now,
     });
@@ -149,8 +151,10 @@ class MockStore {
   whatsAppReply = this.proxy('WhatsAppReply');
   canvaConfig = this.proxy('CanvaConfig');
   auditLog = this.proxy('AuditLog');
+  compensationPlan = this.proxy('CompensationPlan');
 
   private proxy(model: string) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
     const store = this;
     return {
       findMany: async (args: any = {}) => {
@@ -274,21 +278,22 @@ class MockStore {
       if (v === null) {
         if (row[k] !== null && row[k] !== undefined) return false;
       } else if (typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date)) {
-        if ('in' in v) {
-          if (!v.in.includes(row[k])) return false;
-        } else if ('not' in v) {
-          if (v.not === null && (row[k] === null || row[k] === undefined)) return false;
-          if (row[k] === v.not) return false;
-        } else if ('contains' in v) {
-          if (typeof row[k] !== 'string' || !row[k].includes(v.contains)) return false;
-        } else if ('gte' in v) {
-          if (!(new Date(row[k]) >= new Date(v.gte))) return false;
-        } else if ('lt' in v) {
-          if (!(new Date(row[k]) < new Date(v.lt))) return false;
-        } else if ('startsWith' in v) {
-          if (typeof row[k] !== 'string' || !row[k].startsWith(v.startsWith)) return false;
+        const cond = v as any;
+        if ('in' in cond) {
+          if (!cond.in.includes(row[k])) return false;
+        } else if ('not' in cond) {
+          if (cond.not === null && (row[k] === null || row[k] === undefined)) return false;
+          if (row[k] === cond.not) return false;
+        } else if ('contains' in cond) {
+          if (typeof row[k] !== 'string' || !row[k].includes(cond.contains)) return false;
+        } else if ('gte' in cond) {
+          if (!(new Date(row[k]) >= new Date(cond.gte))) return false;
+        } else if ('lt' in cond) {
+          if (!(new Date(row[k]) < new Date(cond.lt))) return false;
+        } else if ('startsWith' in cond) {
+          if (typeof row[k] !== 'string' || !row[k].startsWith(cond.startsWith)) return false;
         } else {
-          if (row[k] !== v) return false;
+          if (row[k] !== cond) return false;
         }
       } else if (Array.isArray(v)) {
         if (!Array.isArray(row[k]) || !v.every((x) => row[k].includes(x))) return false;
@@ -323,37 +328,96 @@ class MockStore {
     });
   }
 
+  // Prisma şemasındaki her include edilebilir ilişki için gerçek model adı + FK alanı.
+  // Anahtar: "ParentModel.relationName". list=true ise `fk` çocuk modelde parent.id'yi
+  // tutan alan; list=false ise `fk` parent satırında çocuğun id'sini tutan alan.
+  private static readonly RELATIONS: Record<string, { model: string; fk: string; list: boolean }> = {
+    'User.personas': { model: 'Persona', fk: 'userId', list: true },
+    'User.sources': { model: 'NewsSource', fk: 'userId', list: true },
+    'User.posts': { model: 'Post', fk: 'userId', list: true },
+    'User.accounts': { model: 'SocialAccount', fk: 'userId', list: true },
+    'User.niches': { model: 'Niche', fk: 'userId', list: true },
+    'User.whatsappConfig': { model: 'WhatsAppConfig', fk: 'userId', list: false },
+    'User.canvaConfig': { model: 'CanvaConfig', fk: 'userId', list: false },
+
+    'Niche.user': { model: 'User', fk: 'userId', list: false },
+    'Niche.sources': { model: 'NewsSource', fk: 'nicheId', list: true },
+    'Niche.posts': { model: 'Post', fk: 'nicheId', list: true },
+
+    'NewsSource.user': { model: 'User', fk: 'userId', list: false },
+    'NewsSource.niche': { model: 'Niche', fk: 'nicheId', list: false },
+    'NewsSource.items': { model: 'NewsItem', fk: 'sourceId', list: true },
+
+    'NewsItem.source': { model: 'NewsSource', fk: 'sourceId', list: false },
+
+    'Persona.user': { model: 'User', fk: 'userId', list: false },
+    'Persona.posts': { model: 'Post', fk: 'personaId', list: true },
+    'Persona.replies': { model: 'WhatsAppReply', fk: 'personaId', list: true },
+
+    'Post.user': { model: 'User', fk: 'userId', list: false },
+    'Post.persona': { model: 'Persona', fk: 'personaId', list: false },
+    'Post.niche': { model: 'Niche', fk: 'nicheId', list: false },
+    'Post.targets': { model: 'PostTarget', fk: 'postId', list: true },
+
+    'PostTarget.post': { model: 'Post', fk: 'postId', list: false },
+    'PostTarget.account': { model: 'SocialAccount', fk: 'accountId', list: false },
+
+    'SocialAccount.user': { model: 'User', fk: 'userId', list: false },
+    'SocialAccount.targets': { model: 'PostTarget', fk: 'accountId', list: true },
+
+    'WhatsAppConfig.user': { model: 'User', fk: 'userId', list: false },
+    'WhatsAppConfig.messages': { model: 'WhatsAppMessage', fk: 'configId', list: true },
+    'WhatsAppConfig.replies': { model: 'WhatsAppReply', fk: 'configId', list: true },
+
+    'WhatsAppMessage.config': { model: 'WhatsAppConfig', fk: 'configId', list: false },
+    'WhatsAppMessage.reply': { model: 'WhatsAppReply', fk: 'replyId', list: false },
+
+    'WhatsAppReply.config': { model: 'WhatsAppConfig', fk: 'configId', list: false },
+    'WhatsAppReply.persona': { model: 'Persona', fk: 'personaId', list: false },
+    'WhatsAppReply.messages': { model: 'WhatsAppMessage', fk: 'replyId', list: true },
+
+    'CanvaConfig.user': { model: 'User', fk: 'userId', list: false },
+  };
+
   private applyInclude(row: any, include: any, model: string): any {
     const out = { ...row };
     for (const [relName, relVal] of Object.entries(include)) {
-      const fk = `${relName}Id`;
-      const isList = ['personas', 'niches', 'sources', 'accounts', 'posts', 'targets', 'messages', 'items', 'replies'].includes(relName);
+      if (relName === '_count') {
+        out._count = this.buildCount(row, relVal, model);
+        continue;
+      }
 
-      if (isList) {
-        const reverseFk = this.inferReverseFk(model, relName);
-        out[relName] = this.getModel(this.capitalize(relName)).filter((r: any) => r[reverseFk] === row.id);
-        if (relVal && typeof relVal === 'object' && relVal.include) {
-          out[relName] = out[relName].map((r: any) => this.applyInclude(r, relVal.include, this.capitalize(relName)));
+      const rel = MockStore.RELATIONS[`${model}.${relName}`];
+      if (!rel) {
+        out[relName] = null;
+        continue;
+      }
+
+      if (rel.list) {
+        let related = this.getModel(rel.model).filter((r: any) => r[rel.fk] === row.id);
+        const nestedInclude = (relVal as any)?.include;
+        if (nestedInclude) {
+          related = related.map((r: any) => this.applyInclude(r, nestedInclude, rel.model));
         }
+        out[relName] = related;
       } else {
-        const fkId = row[fk];
-        if (fkId == null) {
-          out[relName] = null;
-        } else {
-          const relModel = this.capitalize(relName);
-          out[relName] = this.getModel(relModel).find((r: any) => r.id === fkId) || null;
-        }
+        const fkId = row[rel.fk];
+        out[relName] = fkId == null ? null : this.getModel(rel.model).find((r: any) => r.id === fkId) || null;
       }
     }
     return out;
   }
 
-  private inferReverseFk(parentModel: string, relationName: string): string {
-    return parentModel.charAt(0).toLowerCase() + parentModel.slice(1) + 'Id';
-  }
-
-  private capitalize(s: string) {
-    return s.charAt(0).toUpperCase() + s.slice(1);
+  private buildCount(row: any, countSpec: any, model: string): Record<string, number> {
+    const select = countSpec && typeof countSpec === 'object' && countSpec.select ? countSpec.select : {};
+    const result: Record<string, number> = {};
+    for (const relName of Object.keys(select)) {
+      const rel = MockStore.RELATIONS[`${model}.${relName}`];
+      result[relName] = rel && rel.list
+        ? this.getModel(rel.model).filter((r: any) => r[rel.fk] === row.id).length
+        : 0;
+    }
+    return result;
   }
 
   $connect() {

@@ -16,7 +16,7 @@ export function Step4Commission({ plan, onSet }: Props) {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Commission</h2>
         <p className="text-sm text-muted-foreground">
-          Her seviye için komisyon yüzdesi. Toplam %100'ü aşamaz. Seviye 1 (doğrudan alt) en yüksek olur.
+          Her seviye için komisyon yüzdesi. Toplam %100&apos;ü aşamaz. Seviye 1 (doğrudan alt) en yüksek olur.
         </p>
       </div>
 
@@ -68,7 +68,7 @@ export function Step4Commission({ plan, onSet }: Props) {
         {over && (
           <div className="flex items-center gap-2 p-3 bg-rose-500/10 border-t border-rose-500/30 text-rose-300 text-sm">
             <AlertTriangle className="h-4 w-4" />
-            Toplam komisyon %100'ü aşıyor — bu plan sürdürülebilir değil.
+            Toplam komisyon %100&apos;ü aşıyor — bu plan sürdürülebilir değil.
           </div>
         )}
       </div>

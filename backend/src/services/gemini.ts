@@ -4,7 +4,7 @@ import { logger } from '../lib/logger';
 import { isMockMode } from '../lib/mode';
 
 let textModel: GenerativeModel | null = null;
-let visionModel: GenerativeModel | null = null;
+export let visionModel: GenerativeModel | null = null;
 
 if (env.GEMINI_API_KEY && !isMockMode) {
   const genai = new GoogleGenerativeAI(env.GEMINI_API_KEY);
@@ -77,6 +77,7 @@ URL: ${news.url}`;
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- imza generatePostFromNews ile simetrik tutuluyor
 function mockGeneratePost(news: any, lang: string): GeneratedPost {
   const cleanTitle = news.title.replace(/\s+/g, ' ').trim();
   return {

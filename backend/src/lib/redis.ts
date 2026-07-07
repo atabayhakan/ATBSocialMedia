@@ -10,6 +10,7 @@ type RedisLike = {
 };
 
 declare global {
+  // eslint-disable-next-line no-var -- TS global augmentation gerektiriyor, let/const kullanılamaz
   var __redis: RedisLike | undefined;
 }
 
@@ -54,6 +55,7 @@ class InMemoryRedis implements RedisLike {
 }
 
 function buildReal(): RedisLike {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- mock modda ioredis'in yüklü olması gerekmesin diye tembel require
   const IORedis = require('ioredis');
   return new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: null,

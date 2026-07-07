@@ -117,7 +117,7 @@ export default function DashboardPage() {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <AlertCircle className="h-10 w-10 text-muted-foreground" />
-              <p className="mt-3 text-sm text-muted-foreground">Henüz gönderi yok. "Şimdi İçerik Üret" ile başla.</p>
+              <p className="mt-3 text-sm text-muted-foreground">Henüz gönderi yok. &quot;Şimdi İçerik Üret&quot; ile başla.</p>
             </div>
           )}
         </CardContent>

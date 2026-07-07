@@ -36,7 +36,7 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
 
   const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
   let canvaDesignId: string | undefined;
-  let mediaUrls: string[] = [];
+  const mediaUrls: string[] = [];
 
   if (canvaCfg) {
     try {
@@ -54,16 +54,14 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
 
   if (newsItem.imageUrl) mediaUrls.push(newsItem.imageUrl);
 
-  const status = user.role === 'OWNER' ? 'PENDING_APPROVAL' : 'PENDING_APPROVAL';
-
   const post = await prisma.post.create({
     data: {
       userId,
       personaId: persona.id,
       nicheId: opts?.nicheId,
       sourceItemId: newsItem.id,
-      status,
-      mode: 'APPROVAL',
+      status: 'PENDING_APPROVAL',
+      mode: user.defaultMode,
       title: generated.title,
       body: generated.body,
       hashtags: generated.hashtags,
@@ -77,6 +75,10 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
     data: { used: true },
   });
 
+  if (user.defaultMode === 'FULLY_AUTONOMOUS') {
+    return approvePost(post.id);
+  }
+
   return post;
 }
 
@@ -89,7 +91,7 @@ export async function approvePost(postId: string, scheduledAt?: Date) {
 
   if (targets.length === 0 && accounts.length > 0) {
     await prisma.postTarget.createMany({
-      data: accounts.map((a) => ({
+      data: accounts.map((a: any) => ({
         postId: post.id,
         accountId: a.id,
         platform: a.platform,
@@ -138,26 +140,35 @@ export async function publishToPlatform(postId: string, targetId: string) {
 
   await prisma.postTarget.update({
     where: { id: targetId },
-    data: { status: 'PUBLISHING' },
+    data: { status: 'PUBLISHING', error: null },
   });
 
   let externalId = '';
-  switch (target.platform) {
-    case 'TWITTER':
-      externalId = await publishTwitter(target);
-      break;
-    case 'LINKEDIN':
-      externalId = await publishLinkedIn(target);
-      break;
-    case 'INSTAGRAM':
-      externalId = await publishInstagram(target);
-      break;
-    case 'FACEBOOK':
-      externalId = await publishFacebook(target);
-      break;
-    case 'TIKTOK':
-      externalId = await publishTikTok(target);
-      break;
+  try {
+    switch (target.platform) {
+      case 'TWITTER':
+        externalId = await publishTwitter(target);
+        break;
+      case 'LINKEDIN':
+        externalId = await publishLinkedIn(target);
+        break;
+      case 'INSTAGRAM':
+        externalId = await publishInstagram(target);
+        break;
+      case 'FACEBOOK':
+        externalId = await publishFacebook(target);
+        break;
+      case 'TIKTOK':
+        externalId = await publishTikTok(target);
+        break;
+    }
+  } catch (e: any) {
+    const message = e?.response?.data?.error?.message || e.message || 'Bilinmeyen hata';
+    await prisma.postTarget.update({
+      where: { id: targetId },
+      data: { status: 'FAILED', error: message },
+    });
+    throw e;
   }
 
   await prisma.postTarget.update({
@@ -180,8 +191,32 @@ export async function publishToPlatform(postId: string, targetId: string) {
   }
 }
 
+const TWEET_LIMIT = 280;
+const TWEET_URL_WEIGHT = 23; // Twitter her linki uzunluğundan bağımsız 23 karakter sayar
+const URL_REGEX = /https?:\/\/\S+/g;
+
+function tweetWeightedLength(s: string): number {
+  const urls = s.match(URL_REGEX) || [];
+  return urls.reduce((len, u) => len + TWEET_URL_WEIGHT - u.length, s.length);
+}
+
+function trimForTwitter(title: string, body: string, hashtags: string[]): string {
+  const suffix = hashtags.length ? `\n\n${hashtags.join(' ')}` : '';
+  const budget = TWEET_LIMIT - tweetWeightedLength(suffix);
+
+  let main = `${title}\n\n${body}`;
+  if (tweetWeightedLength(main) > budget) {
+    const ellipsis = '...';
+    while (main.length > 0 && tweetWeightedLength(main) + ellipsis.length > budget) {
+      main = main.slice(0, -1);
+    }
+    main = main.replace(/\s+$/, '') + ellipsis;
+  }
+  return main + suffix;
+}
+
 async function publishTwitter(target: any): Promise<string> {
-  const text = `${target.post.title}\n\n${target.post.body}\n\n${target.post.hashtags.join(' ')}`.slice(0, 280);
+  const text = trimForTwitter(target.post.title, target.post.body, target.post.hashtags);
   const { data } = await axios.post(
     'https://api.twitter.com/2/tweets',
     { text },

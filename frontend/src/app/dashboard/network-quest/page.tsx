@@ -149,7 +149,7 @@ export default function NetworkQuestPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Network Quest</h1>
           <p className="text-sm text-muted-foreground">
-            Build Any Compensation Plan · 5 steps. Drag-and-drop. Watch your network grow.
+            Build Any Compensation Plan · 7 steps. Drag-and-drop. Watch your network grow.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={reset}>

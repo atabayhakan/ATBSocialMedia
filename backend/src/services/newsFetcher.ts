@@ -52,8 +52,9 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
     items = feed.items as any;
   } else if (source.type === 'WEB_SCRAPE') {
     const { data } = await axios.get(source.url, { timeout: 15000 });
-    const $ = (await import('cheerio')).default.load(data);
-    $('article, .post, .entry').each((_, el) => {
+    const cheerio = await import('cheerio');
+    const $ = cheerio.load(data);
+    $('article, .post, .entry').each((_: number, el: any) => {
       const title = $(el).find('h1, h2, h3').first().text().trim();
       const link = $(el).find('a').first().attr('href') || '';
       if (title && link) {
@@ -68,9 +69,9 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
 
   let newCount = 0;
   for (const item of items) {
-    const externalId = item.link || item.guid || item.title;
-    if (!externalId) continue;
+    if (!item.link) continue; // url alanı zorunlu/unique; link'siz öğe eklenemez
 
+    const externalId = item.link;
     const exists = await prisma.newsItem.findUnique({ where: { url: item.link } });
     if (exists) continue;
 
@@ -78,9 +79,8 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
     let summary = item.contentSnippet || '';
     const imageUrl = item.enclosure?.url;
 
-    const userNicheLang = (await prisma.niche.findFirst({ where: { userId: source.userId } }))?.keywords?.length
-      ? 'en'
-      : source.language;
+    const defaultPersona = await prisma.persona.findFirst({ where: { userId: source.userId, isDefault: true } });
+    const userNicheLang = defaultPersona?.language || source.language;
 
     if (source.language !== userNicheLang) {
       try {

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { extractImageTextForCanva, generatePostFromNews } from './gemini';
+import { extractImageTextForCanva } from './gemini';
 
 const CANVA_API = 'https://api.canva.com/rest/v1';
 

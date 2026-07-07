@@ -6,7 +6,26 @@
 # Node 20+ (LTS) — https://nodejs.org
 node -v
 npm -v
+```
 
+### PostgreSQL + Redis — Yöntem A (Docker, önerilen)
+
+Docker Desktop kuruluysa, native kurulum derdi olmadan tek komutla ikisi de ayağa kalkar:
+
+```powershell
+docker compose up -d
+# doğrula:
+docker compose ps
+```
+
+Bu, repo kökündeki `docker-compose.yml`'deki kimlik bilgileriyle (`atb`/`atb`/`atbsocialmedia`)
+`backend/.env.example`'daki `DATABASE_URL`/`REDIS_URL` varsayılanlarıyla birebir uyumludur.
+
+### PostgreSQL + Redis — Yöntem B (native Windows kurulumu)
+
+Docker kullanmak istemiyorsan:
+
+```powershell
 # PostgreSQL 14+
 # https://www.postgresql.org/download/windows/
 # Kurulum sırasında atb / atb / atbsocialmedia oluştur
@@ -25,10 +44,13 @@ redis-cli ping
 ```powershell
 cd D:\ATBSocialMedia
 npm install
-copy .env.example .env
 copy backend\.env.example backend\.env
-copy frontend\.env.example frontend\.env
+copy frontend\.env.example frontend\.env.local
 ```
+
+Not: Kök dizindeki `.env.example` hiçbir uygulama tarafından okunmaz, sadece tüm
+değişkenlerin referans listesidir. Gerçek ayarlar `backend\.env` ve
+`frontend\.env.local` içinde yapılır.
 
 ## 3. Anahtar Servisler
 

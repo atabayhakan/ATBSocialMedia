@@ -14,6 +14,7 @@ model User {
   passwordHash  String?
   role          UserRole  @default(OWNER)
   timezone      String    @default("Europe/Istanbul")
+  defaultMode   PublishMode @default(APPROVAL)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

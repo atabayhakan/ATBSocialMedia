@@ -116,7 +116,6 @@ async function handleIncomingMessage(sock: BaileysSocket, msg: any) {
     data: { configId: cfg.id, remoteJid, fromMe: false, body },
   });
 
-  const user = await prisma.user.findUnique({ where: { id: cfg.userId } });
   const persona = await prisma.persona.findFirst({
     where: { userId: cfg.userId, isDefault: true },
   });

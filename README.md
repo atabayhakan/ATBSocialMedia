@@ -60,13 +60,15 @@ ATBSocialMedia/
 # Bağımlılıklar
 npm install
 
-# Env dosyaları
-copy .env.example .env
+# Env dosyaları (kök .env.example sadece referanstır, okunmaz)
 copy backend\.env.example backend\.env
-copy frontend\.env.example frontend\.env
+copy frontend\.env.example frontend\.env.local
 
-# .env dosyalarını kendi anahtarlarınla düzenle
+# backend\.env dosyasını kendi anahtarlarınla düzenle
 # (özellikle GEMINI_API_KEY, DATABASE_URL zorunlu)
+
+# Postgres + Redis (Docker kuruluysa):
+docker compose up -d
 
 # Veritabanı
 npm run db:generate

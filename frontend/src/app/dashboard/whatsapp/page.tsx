@@ -141,13 +141,13 @@ export default function WhatsAppPage() {
                   <div className="rounded-xl border border-border bg-white p-4">
                     <img src={qr} alt="WhatsApp QR" className="h-64 w-64" />
                   </div>
-                  <p className="text-sm text-muted-foreground">QR'ı telefonunla okut, 30 saniye içinde bağlantı kurulur.</p>
+                  <p className="text-sm text-muted-foreground">QR&apos;ı telefonunla okut, 30 saniye içinde bağlantı kurulur.</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
                   <Smartphone className="h-10 w-10 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    Şu an aktif bir QR yok. Backend'i WA_QR_ENABLED=true ile başlattığından emin ol.
+                    Şu an aktif bir QR yok. Backend&apos;i WA_QR_ENABLED=true ile başlattığından emin ol.
                   </p>
                 </div>
               )}

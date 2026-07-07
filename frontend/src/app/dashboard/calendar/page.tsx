@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Check, X, Eye, Twitter, Linkedin, Instagram, Facebook, Music2 } from 'lucide-react';
+import { Check, X, RotateCcw, Twitter, Linkedin, Instagram, Facebook, Music2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +56,16 @@ export default function CalendarPage() {
     }
   }
 
+  async function retryTarget(postId: string, targetId: string) {
+    try {
+      await api.post(`/api/posts/${postId}/publish`, { targetId });
+      toast.success('Yeniden denendi');
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Tekrar deneme başarısız');
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -90,11 +100,25 @@ export default function CalendarPage() {
                   <div className="flex flex-wrap gap-1">
                     {p.targets?.map((t: any) => {
                       const Icon = platformIcons[t.platform];
-                      return Icon ? (
+                      if (!Icon) return null;
+                      if (t.status === 'FAILED') {
+                        return (
+                          <button
+                            key={t.id}
+                            title={t.error || 'Yayınlanamadı — tekrar dene'}
+                            onClick={() => retryTarget(p.id, t.id)}
+                            className="flex items-center gap-1 rounded-md bg-rose-500/15 p-1.5 text-rose-400 hover:bg-rose-500/25"
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            <RotateCcw className="h-3 w-3" />
+                          </button>
+                        );
+                      }
+                      return (
                         <div key={t.id} className="rounded-md bg-muted p-1.5">
                           <Icon className="h-3.5 w-3.5" />
                         </div>
-                      ) : null;
+                      );
                     })}
                   </div>
                 </div>

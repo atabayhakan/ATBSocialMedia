@@ -9,7 +9,7 @@ router.get('/accounts', async (req, res) => {
     where: { userId: userId || undefined },
     orderBy: { createdAt: 'desc' },
   });
-  res.json(accounts.map((a) => ({ ...a, accessToken: undefined, refreshToken: undefined })));
+  res.json(accounts.map((a: any) => ({ ...a, accessToken: undefined, refreshToken: undefined })));
 });
 
 router.post('/accounts', async (req, res) => {

@@ -17,10 +17,17 @@ interface Node {
   level: number;
 }
 
+const MAX_PREVIEW_NODES = 600;
+
+function totalNodes(w: number, d: number): number {
+  return w === 1 ? d + 1 : (Math.pow(w, d + 1) - 1) / (w - 1);
+}
+
 export function TreePreview({ width, depth, unlimited, method }: Props) {
   const layout = useMemo(() => {
     const w = Math.max(1, Math.min(10, width));
-    const d = unlimited ? 4 : Math.max(1, Math.min(8, depth));
+    let d = unlimited ? 4 : Math.max(1, Math.min(8, depth));
+    while (d > 1 && totalNodes(w, d) > MAX_PREVIEW_NODES) d--;
     const W = 800;
     const H = 60 + d * 70;
     const rootX = W / 2;
