@@ -75,6 +75,8 @@ DRAFT → PENDING_APPROVAL → APPROVED/SCHEDULED → PUBLISHING → PUBLISHED. 
 - **AI yanıtı çok yavaş / üretim mock gibi kopya**: Ücretsiz AI modelleri yoğun olabilir; sistem otomatik yedek
   modele geçer. Sürekli oluyorsa Tanı Raporu oluştur.
 - **Panel açılmıyor / şifre soruyor**: Panel Basic Auth ile korunur; kullanıcı adı/şifre sunucu yöneticisinde.
+- **Panel adresleri**: Yönetim paneli https://admin.sponsorify.tech (şifreli). Tanıtım sayfası
+  https://sponsorify.tech (halka açık). Tüm trafik HTTPS (Let's Encrypt otomatik).
 
 ## MCP — Claude'dan panel kontrolü
 Panel bir MCP (Model Context Protocol) sunucusu sunar: /api/mcp endpoint'i.
