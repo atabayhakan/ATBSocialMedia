@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          UserRole  @default(OWNER)
+  timezone      String    @default("Europe/Istanbul")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  personas      Persona[]
+  sources       NewsSource[]
+  posts         Post[]
+  accounts      SocialAccount[]
+  whatsappConfig WhatsAppConfig?
+  canvaConfig   CanvaConfig?
+  niches        Niche[]
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  EDITOR
+}
+
+model Niche {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  keywords  String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources   NewsSource[]
+  posts     Post[]
+
+  @@index([userId])
+}
+
+model NewsSource {
+  id        String   @id @default(cuid())
+  userId    String
+  nicheId   String?
+  type      SourceType
+  url       String
+  name      String
+  language  String   @default("en")
+  active    Boolean  @default(true)
+  intervalMin Int    @default(30)
+  lastFetchedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  niche     Niche?   @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  items     NewsItem[]
+
+  @@index([userId, active])
+}
+
+enum SourceType {
+  RSS
+  WEB_SCRAPE
+  API
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  sourceId    String
+  externalId  String
+  title       String
+  summary     String?
+  content     String?
+  url         String   @unique
+  imageUrl    String?
+  language    String   @default("en")
+  publishedAt DateTime?
+  fetchedAt   DateTime @default(now())
+  used        Boolean  @default(false)
+
+  source      NewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, used])
+  @@index([publishedAt])
+}
+
+model Persona {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  tone      String
+  language  String   @default("tr")
+  voiceRules String?
+  forbiddenTopics String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts     Post[]
+  replies   WhatsAppReply[]
+
+  @@index([userId])
+}
+
+model Post {
+  id           String   @id @default(cuid())
+  userId       String
+  personaId    String?
+  nicheId      String?
+  sourceItemId String?
+  status       PostStatus @default(DRAFT)
+  mode         PublishMode @default(APPROVAL)
+  title        String
+  body         String
+  hashtags     String[]
+  mediaUrls    String[]
+  canvaDesignId String?
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona   Persona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  niche     Niche?   @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  targets   PostTarget[]
+
+  @@index([userId, status])
+  @@index([scheduledAt])
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  REJECTED
+}
+
+enum PublishMode {
+  FULLY_AUTONOMOUS
+  APPROVAL
+}
+
+model PostTarget {
+  id        String   @id @default(cuid())
+  postId    String
+  accountId String
+  platform  Platform
+  status    PostStatus @default(PENDING_APPROVAL)
+  externalId String?
+  error     String?
+  publishedAt DateTime?
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  account   SocialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([accountId])
+}
+
+enum Platform {
+  TWITTER
+  LINKEDIN
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+}
+
+model SocialAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  platform     Platform
+  accountName  String
+  externalId   String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  meta         Json?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets      PostTarget[]
+
+  @@unique([platform, externalId])
+  @@index([userId])
+}
+
+model WhatsAppConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  mode            WhatsAppMode
+  phoneNumber     String?
+  webhookUrl      String?
+  isConnected     Boolean  @default(false)
+  lastConnectedAt DateTime?
+  meta            Json?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        WhatsAppMessage[]
+  replies         WhatsAppReply[]
+}
+
+enum WhatsAppMode {
+  QR_BAILEYS
+  BUSINESS_API
+}
+
+model WhatsAppMessage {
+  id          String   @id @default(cuid())
+  configId    String
+  remoteJid   String
+  fromMe      Boolean  @default(false)
+  body        String
+  mediaUrl    String?
+  receivedAt  DateTime @default(now())
+  replyId     String?
+
+  config      WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  reply       WhatsAppReply? @relation(fields: [replyId], references: [id], onDelete: SetNull)
+
+  @@index([configId, receivedAt])
+}
+
+model WhatsAppReply {
+  id           String   @id @default(cuid())
+  configId     String
+  personaId    String?
+  remoteJid    String
+  incomingBody String
+  replyBody    String
+  isCritical   Boolean  @default(false)
+  notifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  config       WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  persona      Persona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  messages     WhatsAppMessage[]
+
+  @@index([configId, createdAt])
+}
+
+model CanvaConfig {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model CompensationPlan {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  method         String
+  width          Int      @default(5)
+  depth          Int      @default(5)
+  depthUnlimited Boolean  @default(false)
+  config         Json?
+  status         String   @default("DRAFT")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([createdAt])
+}
