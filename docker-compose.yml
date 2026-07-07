@@ -9,7 +9,8 @@ services:
       POSTGRES_PASSWORD: atb
       POSTGRES_DB: atbsocialmedia
     ports:
-      - '5432:5432'
+      # Sadece localhost — Docker, ufw'yi bypass ettiği için 0.0.0.0'a bağlamak DB'yi internete açar
+      - '127.0.0.1:5432:5432'
     volumes:
       - atb_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +23,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '127.0.0.1:6379:6379'
     volumes:
       - atb_redis_data:/data
     healthcheck:

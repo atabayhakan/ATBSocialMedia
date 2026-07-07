@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Boş bırakılırsa göreli URL kullanılır: istekler aynı origin'e gider ve
+// next.config.js rewrites (veya prod'da reverse proxy) backend'e yönlendirir.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export class ApiError extends Error {
   status: number;
