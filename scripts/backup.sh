@@ -19,6 +19,12 @@ if [ -d "$WA_DIR" ]; then
   tar -czf "$BACKUP_DIR/wa-sessions-$STAMP.tar.gz" -C "$(dirname "$WA_DIR")" "$(basename "$WA_DIR")"
 fi
 
+# Env dosyaları (ENCRYPTION_KEY dahil — bunsuz DB'deki şifreli token'lar çözülemez)
+if [ -f /opt/atbsocialmedia/backend/.env ]; then
+  tar -czf "$BACKUP_DIR/env-$STAMP.tar.gz" -C /opt/atbsocialmedia backend/.env
+  chmod 600 "$BACKUP_DIR/env-$STAMP.tar.gz"
+fi
+
 # Eski yedekleri temizle
 find "$BACKUP_DIR" -name '*.gz' -mtime +$KEEP_DAYS -delete
 

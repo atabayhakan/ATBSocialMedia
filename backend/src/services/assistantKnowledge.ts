@@ -82,8 +82,8 @@ DRAFT → PENDING_APPROVAL → APPROVED/SCHEDULED → PUBLISHING → PUBLISHED. 
 Panel bir MCP (Model Context Protocol) sunucusu sunar: /api/mcp endpoint'i.
 Claude Code / Cowork'e eklenince Claude şu araçlarla paneli yönetebilir: durum özeti,
 gönderi listeleme/üretme/onaylama (zamanlamalı: "yarın 09:00'da yayınla"), reddetme,
-anında yayınlama, kaynak tarama, panel araması. Bağlantı: kullanıcı Cowork'te
-"MCP'yi bağla" diyebilir; kimlik doğrulama panelin Basic Auth bilgileriyle yapılır.
+anında yayınlama, kaynak tarama, panel araması. Kimlik doğrulama panel şifresinden
+bağımsız bir MCP erişim anahtarıyla (Bearer token) yapılır; anahtar sunucu yöneticisindedir.
 
 ## Sunucu mimarisi (teşhis için)
 Hostinger VPS (Ubuntu 24.04) → Caddy :80 (Basic Auth; /api ve /health → backend :4000, geri kalan → frontend :3000)

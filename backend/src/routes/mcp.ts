@@ -4,6 +4,8 @@
 // Bağımlılıksız minimal implementasyon: initialize, tools/list, tools/call, ping.
 // (Resmi SDK, tsconfig moduleResolution=node ile uyumsuz olduğu için kullanılmadı.)
 import { Router } from 'express';
+import { timingSafeEqual } from 'crypto';
+import { env } from '../lib/env';
 import { prisma } from '../lib/prisma';
 import { generatePostForUser, approvePost, publishToPlatform } from '../services/publisher';
 import { fetchAllSources } from '../services/newsFetcher';
@@ -170,6 +172,20 @@ function rpcError(id: any, code: number, message: string) {
 }
 
 const router = Router();
+
+// MCP, panel Basic Auth'undan bağımsız kendi Bearer token'ını doğrular
+// (Caddy /api/mcp'yi basic auth'tan muaf tutar). MCP_TOKEN boşsa kontrol kapalı.
+router.use((req, res, next) => {
+  if (!env.MCP_TOKEN) return next();
+  const header = req.header('authorization') || '';
+  const provided = header.replace(/^Bearer\s+/i, '');
+  const a = Buffer.from(provided);
+  const b = Buffer.from(env.MCP_TOKEN);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'Geçersiz MCP token' });
+  }
+  next();
+});
 
 router.post('/', async (req, res) => {
   const msg = req.body;

@@ -16,6 +16,9 @@ const schema = z.object({
   JWT_SECRET: z.string().min(8).default('change-me-in-production'),
   // 64 hex karakter (32 bayt) — DB'deki token/anahtar şifrelemesi için
   ENCRYPTION_KEY: z.string().default(''),
+  // MCP endpoint'i için panel şifresinden bağımsız erişim anahtarı.
+  // Boşsa token kontrolü yapılmaz (yerel/mock geliştirme).
+  MCP_TOKEN: z.string().default(''),
   WA_QR_ENABLED: z.string().optional(),
   WA_BUSINESS_ENABLED: z.string().optional(),
 });
