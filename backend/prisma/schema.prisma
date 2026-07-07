@@ -278,20 +278,3 @@ model AuditLog {
 
   @@index([userId, createdAt])
 }
-
-model CompensationPlan {
-  id             String   @id @default(cuid())
-  userId         String
-  name           String
-  method         String
-  width          Int      @default(5)
-  depth          Int      @default(5)
-  depthUnlimited Boolean  @default(false)
-  config         Json?
-  status         String   @default("DRAFT")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([userId, status])
-  @@index([createdAt])
-}

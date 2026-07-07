@@ -12,7 +12,6 @@ import {
   Share2,
   Settings,
   Sparkles,
-  Network,
 } from 'lucide-react';
 
 const items = [
@@ -23,7 +22,6 @@ const items = [
   { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/dashboard/canva', label: 'Canva Tasarım', icon: Palette },
   { href: '/dashboard/social', label: 'Sosyal Hesaplar', icon: Share2 },
-  { href: '/dashboard/network-quest', label: 'Network Quest', icon: Network },
   { href: '/dashboard/settings', label: 'Ayarlar', icon: Settings },
 ];
 

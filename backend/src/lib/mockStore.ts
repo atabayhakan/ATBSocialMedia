@@ -17,7 +17,6 @@ class MockStore {
     WhatsAppReply: [],
     CanvaConfig: [],
     AuditLog: [],
-    CompensationPlan: [],
   };
 
   constructor() {
@@ -151,7 +150,6 @@ class MockStore {
   whatsAppReply = this.proxy('WhatsAppReply');
   canvaConfig = this.proxy('CanvaConfig');
   auditLog = this.proxy('AuditLog');
-  compensationPlan = this.proxy('CompensationPlan');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
