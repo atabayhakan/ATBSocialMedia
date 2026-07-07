@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import { decryptSecret } from '../lib/crypto';
 import { generatePostFromNews } from './ai';
 import { pickNextNewsItemForUser } from './newsFetcher';
 import { fillCanvaTemplate } from './canva';
@@ -118,6 +119,18 @@ export async function approvePost(postId: string, scheduledAt?: Date) {
   });
 }
 
+// Yeniden başlatma bir yayını yarıda kesmişse hedef PUBLISHING'de askıda kalır.
+// 10 dakikadan eski PUBLISHING hedeflerini FAILED'a çevirir (açılışta + periyodik çağrılır).
+export async function sweepStuckTargets() {
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000);
+  const { count } = await prisma.postTarget.updateMany({
+    where: { status: 'PUBLISHING', updatedAt: { lt: cutoff } },
+    data: { status: 'FAILED', error: 'Yayın yarıda kesildi (askıda kaldı) — tekrar deneyebilirsin' },
+  });
+  if (count > 0) logger.warn({ count }, 'Askıda kalan yayın hedefleri FAILED olarak işaretlendi');
+  return count;
+}
+
 export async function processPendingPosts() {
   const now = new Date();
   const targets = await prisma.postTarget.findMany({
@@ -147,6 +160,10 @@ export async function publishToPlatform(postId: string, targetId: string) {
     include: { post: true, account: true },
   });
   if (!target) throw new Error('Target bulunamadı');
+
+  // Token'lar DB'de şifreli durur; sadece kullanım anında bellekte çözülür
+  target.account.accessToken = decryptSecret(target.account.accessToken)!;
+  target.account.refreshToken = decryptSecret(target.account.refreshToken);
 
   await prisma.postTarget.update({
     where: { id: targetId },
@@ -211,12 +228,12 @@ const TWEET_LIMIT = 280;
 const TWEET_URL_WEIGHT = 23; // Twitter her linki uzunluğundan bağımsız 23 karakter sayar
 const URL_REGEX = /https?:\/\/\S+/g;
 
-function tweetWeightedLength(s: string): number {
+export function tweetWeightedLength(s: string): number {
   const urls = s.match(URL_REGEX) || [];
   return urls.reduce((len, u) => len + TWEET_URL_WEIGHT - u.length, s.length);
 }
 
-function trimForTwitter(title: string, body: string, hashtags: string[]): string {
+export function trimForTwitter(title: string, body: string, hashtags: string[]): string {
   const suffix = hashtags.length ? `\n\n${hashtags.join(' ')}` : '';
   const budget = TWEET_LIMIT - tweetWeightedLength(suffix);
 

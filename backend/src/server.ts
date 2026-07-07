@@ -104,11 +104,16 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// Testlerde app import edilir ama sunucu başlatılmaz
+export { app };
 
-process.on('SIGINT', async () => {
-  logger.info('Kapatılıyor...');
-  await prisma.$disconnect();
-  await redis.quit();
-  process.exit(0);
-});
+if (require.main === module) {
+  bootstrap();
+
+  process.on('SIGINT', async () => {
+    logger.info('Kapatılıyor...');
+    await prisma.$disconnect();
+    await redis.quit();
+    process.exit(0);
+  });
+}

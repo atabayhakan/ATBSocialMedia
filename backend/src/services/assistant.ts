@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import { encryptSecret, decryptSecret } from '../lib/crypto';
 import { AiProvider, chatWithProvider, systemProvider, ChatMessage } from './ai';
 import { ASSISTANT_KNOWLEDGE } from './assistantKnowledge';
 import { isWhatsAppConnected } from './whatsapp';
@@ -10,7 +11,7 @@ const HISTORY_LIMIT = 12;
 async function resolveProvider(userId: string): Promise<AiProvider> {
   const cfg = await prisma.assistantConfig.findUnique({ where: { userId } });
   if (cfg?.enabled && cfg.apiKey) {
-    return { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model };
+    return { baseUrl: cfg.baseUrl, apiKey: decryptSecret(cfg.apiKey)!, model: cfg.model };
   }
   return systemProvider();
 }
@@ -215,7 +216,7 @@ export async function updateConfig(
   if (data.enabled !== undefined) patch.enabled = data.enabled;
   if (data.baseUrl !== undefined) patch.baseUrl = data.baseUrl;
   if (data.model !== undefined) patch.model = data.model;
-  if (data.apiKey !== undefined) patch.apiKey = data.apiKey === '' ? null : data.apiKey;
+  if (data.apiKey !== undefined) patch.apiKey = data.apiKey === '' ? null : encryptSecret(data.apiKey);
 
   await prisma.assistantConfig.upsert({
     where: { userId },

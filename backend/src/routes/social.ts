@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { encryptSecret } from '../lib/crypto';
 
 const router = Router();
 
@@ -17,7 +18,16 @@ router.post('/accounts', async (req, res) => {
   if (!userId) return res.status(400).json({ error: 'userId gerekli' });
   const { platform, accountName, externalId, accessToken, refreshToken, expiresAt, meta } = req.body;
   const account = await prisma.socialAccount.create({
-    data: { userId, platform, accountName, externalId, accessToken, refreshToken, expiresAt: expiresAt ? new Date(expiresAt) : null, meta },
+    data: {
+      userId,
+      platform,
+      accountName,
+      externalId,
+      accessToken: encryptSecret(accessToken)!,
+      refreshToken: encryptSecret(refreshToken),
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      meta,
+    },
   });
   res.status(201).json({ ...account, accessToken: undefined, refreshToken: undefined });
 });

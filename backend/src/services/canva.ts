@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import { encryptSecret, decryptSecret } from '../lib/crypto';
 import { extractImageTextForCanva } from './ai';
 
 const CANVA_API = 'https://api.canva.com/rest/v1';
@@ -36,14 +37,14 @@ export async function exchangeCodeForToken(code: string, userId: string) {
     where: { userId },
     create: {
       userId,
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
+      accessToken: encryptSecret(data.access_token)!,
+      refreshToken: encryptSecret(data.refresh_token)!,
       expiresAt: new Date(Date.now() + data.expires_in * 1000),
       scope: data.scope,
     },
     update: {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
+      accessToken: encryptSecret(data.access_token)!,
+      refreshToken: encryptSecret(data.refresh_token)!,
       expiresAt: new Date(Date.now() + data.expires_in * 1000),
       scope: data.scope,
     },
@@ -57,21 +58,21 @@ async function getValidToken(userId: string) {
   if (cfg.expiresAt.getTime() - Date.now() < 60_000) {
     const { data } = await axios.post('https://api.canva.com/rest/v1/oauth/token', {
       grant_type: 'refresh_token',
-      refresh_token: cfg.refreshToken,
+      refresh_token: decryptSecret(cfg.refreshToken),
       client_id: process.env.CANVA_CLIENT_ID,
       client_secret: process.env.CANVA_CLIENT_SECRET,
     });
     await prisma.canvaConfig.update({
       where: { userId },
       data: {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
+        accessToken: encryptSecret(data.access_token)!,
+        refreshToken: encryptSecret(data.refresh_token)!,
         expiresAt: new Date(Date.now() + data.expires_in * 1000),
       },
     });
     return data.access_token as string;
   }
-  return cfg.accessToken;
+  return decryptSecret(cfg.accessToken)!;
 }
 
 export async function listTemplates(userId: string) {

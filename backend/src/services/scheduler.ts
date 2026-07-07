@@ -1,10 +1,21 @@
 import cron from 'node-cron';
 import { logger } from '../lib/logger';
 import { fetchAllSources } from './newsFetcher';
-import { processPendingPosts } from './publisher';
+import { processPendingPosts, sweepStuckTargets } from './publisher';
 import { prisma } from '../lib/prisma';
 
 export function startScheduler() {
+  // Açılışta bir kez: önceki çalıştırmadan askıda kalanları temizle
+  sweepStuckTargets().catch((e) => logger.error({ e }, 'Açılış süpürücü hatası'));
+
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      await sweepStuckTargets();
+    } catch (e) {
+      logger.error({ e }, 'Süpürücü hatası');
+    }
+  });
+
   cron.schedule('*/5 * * * *', async () => {
     try {
       logger.info('⏰ Zamanlayıcı: haber kaynakları taranıyor');

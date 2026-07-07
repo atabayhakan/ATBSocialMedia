@@ -14,6 +14,8 @@ const schema = z.object({
   AI_FALLBACK_MODELS: z.string().default(''),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().min(8).default('change-me-in-production'),
+  // 64 hex karakter (32 bayt) — DB'deki token/anahtar şifrelemesi için
+  ENCRYPTION_KEY: z.string().default(''),
   WA_QR_ENABLED: z.string().optional(),
   WA_BUSINESS_ENABLED: z.string().optional(),
 });

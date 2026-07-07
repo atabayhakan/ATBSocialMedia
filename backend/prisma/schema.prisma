@@ -168,6 +168,7 @@ model PostTarget {
   externalId String?
   error     String?
   publishedAt DateTime?
+  updatedAt DateTime @default(now()) @updatedAt
 
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   account   SocialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)

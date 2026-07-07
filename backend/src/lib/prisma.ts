@@ -1,4 +1,5 @@
 import { isMockMode } from './mode';
+import { mockStore } from './mockStore';
 
 type AnyClient = any;
 
@@ -16,8 +17,7 @@ function buildReal(): AnyClient {
 }
 
 function buildMock(): AnyClient {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- gerçek modda mockStore'un yüklü olması gerekmesin diye tembel require
-  return require('./mockStore').mockStore;
+  return mockStore;
 }
 
 export const prisma: AnyClient = (() => {
