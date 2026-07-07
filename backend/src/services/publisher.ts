@@ -170,6 +170,12 @@ export async function publishToPlatform(postId: string, targetId: string) {
       case 'TIKTOK':
         externalId = await publishTikTok(target);
         break;
+      case 'TELEGRAM':
+        externalId = await publishTelegram(target);
+        break;
+      case 'BLUESKY':
+        externalId = await publishBluesky(target);
+        break;
     }
   } catch (e: any) {
     const message = e?.response?.data?.error?.message || e.message || 'Bilinmeyen hata';
@@ -286,6 +292,83 @@ async function publishFacebook(target: any): Promise<string> {
     body
   );
   return data.id;
+}
+
+// Telegram: accessToken = bot token, externalId = kanal chat_id (@kanaladi veya -100...)
+// Bot, kanala yönetici olarak eklenmiş olmalı.
+async function publishTelegram(target: any): Promise<string> {
+  const botToken = target.account.accessToken;
+  const chatId = target.account.externalId;
+  const text = `${target.post.title}\n\n${target.post.body}\n\n${target.post.hashtags.join(' ')}`;
+  const imageUrl = target.post.mediaUrls[0];
+
+  if (imageUrl) {
+    // sendPhoto caption sınırı 1024 karakter
+    const { data } = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      chat_id: chatId,
+      photo: imageUrl,
+      caption: text.slice(0, 1024),
+    });
+    return String(data?.result?.message_id ?? '');
+  }
+
+  const { data } = await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    chat_id: chatId,
+    text: text.slice(0, 4096),
+  });
+  return String(data?.result?.message_id ?? '');
+}
+
+// Bluesky: externalId = handle (ornek.bsky.social), accessToken = App Password
+// (Bluesky ayarlarından üretilir; normal hesap şifresi DEĞİL).
+const BSKY_LIMIT = 300;
+
+async function publishBluesky(target: any): Promise<string> {
+  const service = 'https://bsky.social';
+  const session = await axios.post(`${service}/xrpc/com.atproto.server.createSession`, {
+    identifier: target.account.externalId,
+    password: target.account.accessToken,
+  });
+  const { accessJwt, did } = session.data;
+  const authHeaders = { Authorization: `Bearer ${accessJwt}` };
+
+  const suffix = target.post.hashtags.length ? `\n\n${target.post.hashtags.join(' ')}` : '';
+  let main = `${target.post.title}\n\n${target.post.body}`;
+  const budget = BSKY_LIMIT - suffix.length;
+  if (main.length > budget) main = main.slice(0, Math.max(0, budget - 3)).replace(/\s+\S*$/, '') + '...';
+  const text = main + suffix;
+
+  const record: any = {
+    $type: 'app.bsky.feed.post',
+    text,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Görsel varsa blob olarak yükleyip embed et; başarısız olursa metinle devam
+  const imageUrl = target.post.mediaUrls[0];
+  if (imageUrl) {
+    try {
+      const img = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20_000 });
+      const contentType = img.headers['content-type'] || 'image/jpeg';
+      const upload = await axios.post(`${service}/xrpc/com.atproto.repo.uploadBlob`, img.data, {
+        headers: { ...authHeaders, 'Content-Type': contentType },
+        maxBodyLength: Infinity,
+      });
+      record.embed = {
+        $type: 'app.bsky.embed.images',
+        images: [{ image: upload.data.blob, alt: target.post.title.slice(0, 100) }],
+      };
+    } catch (e: any) {
+      logger.warn({ e: e?.message }, 'Bluesky görsel yüklenemedi, metinle devam ediliyor');
+    }
+  }
+
+  const { data } = await axios.post(
+    `${service}/xrpc/com.atproto.repo.createRecord`,
+    { repo: did, collection: 'app.bsky.feed.post', record },
+    { headers: authHeaders }
+  );
+  return data?.uri || '';
 }
 
 async function publishTikTok(target: any): Promise<string> {

@@ -35,7 +35,11 @@ Ayrıca WhatsApp mesajlarına yapay zeka ile otomatik yanıt verebilir.
   CANVA_CLIENT_ID/SECRET/REDIRECT_URI env değişkenleri). Bağlandıktan sonra şablonlardan biri
   "varsayılan" seçilirse otomatik içerik üretiminde görsel o şablonla üretilir.
 - **Sosyal Hesaplar** (/dashboard/social): Platform + hesap adı + External ID + Access Token girilerek bağlanır.
+  Desteklenen 7 platform: Twitter/X, LinkedIn, Instagram, Facebook, TikTok, Telegram, Bluesky.
   Token'lar platformların geliştirici panellerinden alınır. Instagram görsel zorunlu, TikTok video zorunlu.
+  **En kolay iki kanal** (geliştirici onayı gerektirmez):
+  - Telegram: @BotFather'dan bot oluştur → botu kanalına yönetici ekle → Bot Token + kanal adı (@kanaladi) gir.
+  - Bluesky: Settings → App Passwords'tan uygulama şifresi üret → handle (ornek.bsky.social) + o şifreyi gir.
 - **Ayarlar** (/dashboard/settings): Otonom mod (Onay Destekli = taslaklar onay bekler; Tam Otonom = üretilen
   içerik otomatik onaylanıp yayınlanır), Yayın Dili (üretilen içeriğin dili), Asistan AI sağlayıcısı,
   bildirim kanallarının durumu (Telegram/SMTP env ile yapılandırılır).

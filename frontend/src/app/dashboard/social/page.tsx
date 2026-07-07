@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Twitter, Linkedin, Instagram, Facebook, Music2 } from 'lucide-react';
+import { Plus, Trash2, Twitter, Linkedin, Instagram, Facebook, Music2, Send, Bird } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,8 @@ const platformIcons: Record<string, any> = {
   INSTAGRAM: Instagram,
   FACEBOOK: Facebook,
   TIKTOK: Music2,
+  TELEGRAM: Send,
+  BLUESKY: Bird,
 };
 
 const platformColors: Record<string, string> = {
@@ -23,6 +25,19 @@ const platformColors: Record<string, string> = {
   INSTAGRAM: 'from-pink-500 to-purple-500',
   FACEBOOK: 'from-blue-500 to-indigo-600',
   TIKTOK: 'from-slate-700 to-slate-900',
+  TELEGRAM: 'from-sky-400 to-cyan-500',
+  BLUESKY: 'from-sky-500 to-blue-400',
+};
+
+// Platform başına alanların ne anlama geldiği (kimlik bilgileri farklı)
+const platformHints: Record<string, { externalId: string; accessToken: string; help: string }> = {
+  TWITTER: { externalId: 'Kullanıcı ID', accessToken: 'Access Token (OAuth2)', help: 'developer.x.com üzerinden uygulama oluşturup token al.' },
+  LINKEDIN: { externalId: 'Üye/Sayfa ID', accessToken: 'Access Token', help: 'LinkedIn Developer portalından w_member_social izniyle token al.' },
+  INSTAGRAM: { externalId: 'IG Business Account ID', accessToken: 'Access Token', help: 'Meta Graph API — Instagram Business hesabı gerekir. Görsel zorunludur.' },
+  FACEBOOK: { externalId: 'Page ID', accessToken: 'Page Access Token', help: 'Meta Graph API üzerinden sayfa token’ı al.' },
+  TIKTOK: { externalId: 'Open ID', accessToken: 'Access Token', help: 'TikTok Developer portal — video içerik zorunludur.' },
+  TELEGRAM: { externalId: 'Kanal (@kanaladi veya chat_id)', accessToken: 'Bot Token', help: 'Telegram’da @BotFather ile bot oluştur, botu kanalına yönetici ekle. En kolay kanal budur.' },
+  BLUESKY: { externalId: 'Handle (örn: atb.bsky.social)', accessToken: 'App Password', help: 'Bluesky → Settings → App Passwords’tan üret (normal şifreni girme). Onay gerekmez.' },
 };
 
 export default function SocialPage() {
@@ -90,10 +105,13 @@ export default function SocialPage() {
                 <option value="INSTAGRAM">Instagram</option>
                 <option value="FACEBOOK">Facebook</option>
                 <option value="TIKTOK">TikTok</option>
+                <option value="TELEGRAM">Telegram (kanal)</option>
+                <option value="BLUESKY">Bluesky</option>
               </select>
-              <Input placeholder="Hesap adı" value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} />
-              <Input placeholder="External ID / Page ID" value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} />
-              <Input type="password" placeholder="Access Token" value={form.accessToken} onChange={(e) => setForm({ ...form, accessToken: e.target.value })} />
+              <p className="text-xs text-muted-foreground">{platformHints[form.platform]?.help}</p>
+              <Input placeholder="Hesap adı (panelde görünecek)" value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} />
+              <Input placeholder={platformHints[form.platform]?.externalId || 'External ID'} value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} />
+              <Input type="password" placeholder={platformHints[form.platform]?.accessToken || 'Access Token'} value={form.accessToken} onChange={(e) => setForm({ ...form, accessToken: e.target.value })} />
               <Input type="password" placeholder="Refresh Token (opsiyonel)" value={form.refreshToken} onChange={(e) => setForm({ ...form, refreshToken: e.target.value })} />
               <Button variant="gradient" className="w-full" onClick={add}>
                 Kaydet

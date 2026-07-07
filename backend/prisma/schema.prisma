@@ -182,6 +182,8 @@ enum Platform {
   INSTAGRAM
   FACEBOOK
   TIKTOK
+  TELEGRAM
+  BLUESKY
 }
 
 model SocialAccount {

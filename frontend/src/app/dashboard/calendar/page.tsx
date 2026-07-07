@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Check, X, RotateCcw, Twitter, Linkedin, Instagram, Facebook, Music2 } from 'lucide-react';
+import { Check, X, RotateCcw, Twitter, Linkedin, Instagram, Facebook, Music2, Send, Bird } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ const platformIcons: Record<string, any> = {
   INSTAGRAM: Instagram,
   FACEBOOK: Facebook,
   TIKTOK: Music2,
+  TELEGRAM: Send,
+  BLUESKY: Bird,
 };
 
 export default function CalendarPage() {
