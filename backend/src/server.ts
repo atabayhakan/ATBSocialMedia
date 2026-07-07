@@ -20,6 +20,7 @@ import socialRoutes from './routes/social';
 import newsRoutes from './routes/news';
 import settingsRoutes from './routes/settings';
 import assistantRoutes from './routes/assistant';
+import searchRoutes from './routes/search';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -67,6 +68,7 @@ app.use('/api/social', socialRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/search', searchRoutes);
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 

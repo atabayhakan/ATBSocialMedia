@@ -41,6 +41,9 @@ Ayrıca WhatsApp mesajlarına yapay zeka ile otomatik yanıt verebilir.
   bildirim kanallarının durumu (Telegram/SMTP env ile yapılandırılır).
 
 ## Üst bar (her sayfada)
+- Arama kutusu: panel geneli canlı arama — sayfalar, gönderiler, kaynaklar, personalar, sosyal hesaplar.
+  Enter ilk sonuca gider. Sen de (asistan) kullanıcı bir şeyin yerini sorduğunda NAVIGATE protokolü ile
+  onu doğru sayfaya götürebilirsin.
 - Ay/Güneş ikonu: koyu ↔ açık tema geçişi (tercih tarayıcıda hatırlanır).
 - Zil ikonu: bildirim merkezi — onay bekleyen gönderiler, başarısız yayınlar, son 48 saatin kritik
   WhatsApp mesajları. Kırmızı rozet bildirim sayısını gösterir; öğeye tıklamak ilgili sayfaya götürür.

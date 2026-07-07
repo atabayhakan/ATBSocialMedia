@@ -13,8 +13,8 @@ router.post('/chat', async (req, res) => {
   if (message.length > 4000) return res.status(400).json({ error: 'Mesaj çok uzun (max 4000)' });
 
   try {
-    const reply = await chat(userId, message);
-    res.json({ reply });
+    const result = await chat(userId, message);
+    res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

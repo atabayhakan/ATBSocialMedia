@@ -3,6 +3,7 @@ import { logger } from '../lib/logger';
 import { AiProvider, chatWithProvider, systemProvider, ChatMessage } from './ai';
 import { ASSISTANT_KNOWLEDGE } from './assistantKnowledge';
 import { isWhatsAppConnected } from './whatsapp';
+import { searchAll, PAGE_INDEX } from './search';
 
 const HISTORY_LIMIT = 12;
 
@@ -63,7 +64,31 @@ Haber kaynakları:
 ${sourceLines}`;
 }
 
-export async function chat(userId: string, message: string): Promise<string> {
+export interface ChatResult {
+  reply: string;
+  navigateTo: string | null;
+}
+
+const NAV_INSTRUCTIONS = `
+## Yönlendirme (NAVIGATE) protokolü
+Kullanıcı bir şeyin NEREDE olduğunu soruyorsa veya bir sayfaya gitmek/bir işlemi yapmak istiyorsa:
+1. Kısaca cevap ver (neyi nerede bulacağını söyle).
+2. Cevabının EN SON satırına, tek başına, şu formatta bir yönlendirme ekle: NAVIGATE: <href>
+Geçerli href'ler SADECE şunlardır:
+${PAGE_INDEX.map((p) => `- ${p.href} (${p.title})`).join('\n')}
+Sana "PANEL ARAMA SONUÇLARI" bölümü verildiyse, oradaki eşleşmelerin href'lerini kullan.
+Kullanıcı yer/sayfa sormuyorsa NAVIGATE satırı EKLEME.`;
+
+function extractNavigation(reply: string): { cleaned: string; navigateTo: string | null } {
+  const match = reply.match(/NAVIGATE:\s*(\/dashboard[\w\-/]*)/);
+  if (!match) return { cleaned: reply.trim(), navigateTo: null };
+  const href = match[1];
+  const valid = PAGE_INDEX.some((p) => p.href === href);
+  const cleaned = reply.replace(/\n?NAVIGATE:\s*\/dashboard[\w\-/]*\s*$/m, '').trim();
+  return { cleaned, navigateTo: valid ? href : null };
+}
+
+export async function chat(userId: string, message: string): Promise<ChatResult> {
   const history = await prisma.assistantMessage.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -71,26 +96,39 @@ export async function chat(userId: string, message: string): Promise<string> {
   });
   history.reverse();
 
-  const liveContext = await buildLiveContext(userId);
+  const [liveContext, searchResults] = await Promise.all([
+    buildLiveContext(userId),
+    searchAll(userId, message).catch(() => []),
+  ]);
+
+  const searchBlock = searchResults.length
+    ? `\n\n# PANEL ARAMA SONUÇLARI (kullanıcının mesajıyla eşleşenler)\n${searchResults
+        .map((r) => `- ${r.title} (${r.detail}) → ${r.href}`)
+        .join('\n')}`
+    : '';
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: ASSISTANT_KNOWLEDGE + '\n\n' + liveContext },
+    { role: 'system', content: ASSISTANT_KNOWLEDGE + NAV_INSTRUCTIONS + '\n\n' + liveContext + searchBlock },
     ...history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user', content: message },
   ];
 
   const provider = await resolveProvider(userId);
-  const reply = await chatWithProvider(provider, messages, { temperature: 0.4 });
+  const raw = await chatWithProvider(provider, messages, { temperature: 0.4 });
 
-  const finalReply =
-    reply ||
-    'Şu anda AI sağlayıcısına ulaşamıyorum (yoğunluk veya yapılandırma sorunu olabilir). ' +
-      'Birkaç dakika sonra tekrar dene; sorun sürerse "Tanı Raporu" oluşturup Cowork üzerinden Claude\'a ilet.';
+  const { cleaned, navigateTo } = raw
+    ? extractNavigation(raw)
+    : {
+        cleaned:
+          'Şu anda AI sağlayıcısına ulaşamıyorum (yoğunluk veya yapılandırma sorunu olabilir). ' +
+          'Birkaç dakika sonra tekrar dene; sorun sürerse "Tanı Raporu" oluşturup Cowork üzerinden Claude\'a ilet.',
+        navigateTo: null,
+      };
 
   await prisma.assistantMessage.create({ data: { userId, role: 'user', content: message } });
-  await prisma.assistantMessage.create({ data: { userId, role: 'assistant', content: finalReply } });
+  await prisma.assistantMessage.create({ data: { userId, role: 'assistant', content: cleaned } });
 
-  return finalReply;
+  return { reply: cleaned, navigateTo };
 }
 
 // Env özetinde anahtar/şifre içerebilecek değişkenler asla değer olarak yazılmaz.

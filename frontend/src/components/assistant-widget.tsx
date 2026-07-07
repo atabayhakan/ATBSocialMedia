@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bot, X, Send, FileText, Trash2, Copy, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -26,6 +27,7 @@ export function AssistantWidget() {
   const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!open || loadedRef.current) return;
@@ -47,8 +49,15 @@ export function AssistantWidget() {
     setMessages((m) => [...m, { role: 'user', content: text }]);
     setBusy(true);
     try {
-      const { reply } = await api.post<{ reply: string }>('/api/assistant/chat', { message: text });
+      const { reply, navigateTo } = await api.post<{ reply: string; navigateTo: string | null }>(
+        '/api/assistant/chat',
+        { message: text }
+      );
       setMessages((m) => [...m, { role: 'assistant', content: reply }]);
+      if (navigateTo) {
+        toast.info('Seni ilgili sayfaya götürüyorum...');
+        router.push(navigateTo);
+      }
     } catch (e: any) {
       setMessages((m) => [...m, { role: 'assistant', content: 'Bir hata oluştu: ' + (e.message || 'bilinmeyen') }]);
     } finally {
