@@ -17,6 +17,10 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
   const newsItem = await pickNextNewsItemForUser(userId);
   if (!newsItem) throw new Error('Yayınlanacak uygun haber bulunamadı');
 
+  // Dil önceliği: kaynağa özel dil > kullanıcının genel yayın dili > persona dili
+  const newsSource = await prisma.newsSource.findUnique({ where: { id: newsItem.sourceId } });
+  const targetLanguage = newsSource?.targetLanguage || user.publishLanguage || persona.language;
+
   const generated = await generatePostFromNews(
     {
       title: newsItem.title,
@@ -31,7 +35,8 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
       language: persona.language,
       voiceRules: persona.voiceRules,
       forbiddenTopics: persona.forbiddenTopics,
-    }
+    },
+    targetLanguage
   );
 
   const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
@@ -40,11 +45,15 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
 
   if (canvaCfg) {
     try {
-      const design = await fillCanvaTemplate(userId, {
-        title: generated.title,
-        body: generated.body,
-        hashtags: generated.hashtags,
-      });
+      const design = await fillCanvaTemplate(
+        userId,
+        {
+          title: generated.title,
+          body: generated.body,
+          hashtags: generated.hashtags,
+        },
+        canvaCfg.defaultTemplateId || undefined
+      );
       canvaDesignId = design.id;
       if (design.exportUrl) mediaUrls.push(design.exportUrl);
     } catch (e: any) {

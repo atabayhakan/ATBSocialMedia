@@ -28,7 +28,20 @@ router.get('/status', async (req, res) => {
   const userId = req.header('x-user-id');
   if (!userId) return res.status(400).json({ error: 'userId gerekli' });
   const cfg = await prisma.canvaConfig.findUnique({ where: { userId } });
-  res.json({ connected: !!cfg, expiresAt: cfg?.expiresAt });
+  res.json({ connected: !!cfg, expiresAt: cfg?.expiresAt, defaultTemplateId: cfg?.defaultTemplateId || null });
+});
+
+router.put('/default-template', async (req, res) => {
+  const userId = req.header('x-user-id');
+  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const templateId = (req.body?.templateId ?? null) as string | null;
+  const cfg = await prisma.canvaConfig.findUnique({ where: { userId } });
+  if (!cfg) return res.status(400).json({ error: 'Önce Canva hesabını bağla' });
+  const updated = await prisma.canvaConfig.update({
+    where: { userId },
+    data: { defaultTemplateId: templateId },
+  });
+  res.json({ defaultTemplateId: updated.defaultTemplateId });
 });
 
 router.get('/templates', async (req, res) => {

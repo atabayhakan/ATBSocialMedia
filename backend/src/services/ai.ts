@@ -13,34 +13,64 @@ if (!aiEnabled) {
   logger.info('AI_API_KEY yok veya MOCK mod — sahte yanıtlar kullanılacak');
 }
 
-async function chatCompletion(
-  prompt: string,
-  opts: { temperature: number; json: boolean }
+export interface AiProvider {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  fallbackModels?: string[];
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export function systemProvider(): AiProvider {
+  return {
+    baseUrl: env.AI_BASE_URL,
+    apiKey: env.AI_API_KEY,
+    model: env.AI_MODEL,
+    fallbackModels: env.AI_FALLBACK_MODELS.split(',').map((m) => m.trim()).filter(Boolean),
+  };
+}
+
+export async function chatWithProvider(
+  provider: AiProvider,
+  messages: ChatMessage[],
+  opts: { temperature: number; json?: boolean }
 ): Promise<string | null> {
-  if (!aiEnabled) return null;
-  const fallbacks = env.AI_FALLBACK_MODELS.split(',').map((m) => m.trim()).filter(Boolean);
+  if (!provider.apiKey) return null;
+  const fallbacks = provider.fallbackModels || [];
   try {
     const { data } = await axios.post(
-      `${env.AI_BASE_URL}/chat/completions`,
+      `${provider.baseUrl}/chat/completions`,
       {
-        model: env.AI_MODEL,
-        // OpenRouter: biri rate-limit'liyse sıradaki modele otomatik geçer
-        ...(fallbacks.length ? { models: [env.AI_MODEL, ...fallbacks] } : {}),
-        messages: [{ role: 'user', content: prompt }],
+        model: provider.model,
+        // OpenRouter: biri rate-limit'liyse sıradaki modele otomatik geçer (en fazla 3 model)
+        ...(fallbacks.length ? { models: [provider.model, ...fallbacks].slice(0, 3) } : {}),
+        messages,
         temperature: opts.temperature,
         ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       },
       {
-        headers: { Authorization: `Bearer ${env.AI_API_KEY}` },
+        headers: { Authorization: `Bearer ${provider.apiKey}` },
         // Ücretsiz modeller yoğunlukta yavaşlayabiliyor; 60sn sınırda kalıyor
         timeout: 120_000,
       }
     );
     return data?.choices?.[0]?.message?.content ?? null;
   } catch (e: any) {
-    logger.error({ e: e?.response?.data || e.message }, 'AI chatCompletion hatası');
+    logger.error({ e: e?.response?.data || e.message }, 'AI chatWithProvider hatası');
     return null;
   }
+}
+
+async function chatCompletion(
+  prompt: string,
+  opts: { temperature: number; json: boolean }
+): Promise<string | null> {
+  if (!aiEnabled) return null;
+  return chatWithProvider(systemProvider(), [{ role: 'user', content: prompt }], opts);
 }
 
 async function chatJson(prompt: string, temperature: number): Promise<any | null> {

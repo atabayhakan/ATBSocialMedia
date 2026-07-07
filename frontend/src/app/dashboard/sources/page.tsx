@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ type: 'RSS', url: '', name: '', language: 'en', intervalMin: 30 });
+  const [form, setForm] = useState({ type: 'RSS', url: '', name: '', language: 'en', targetLanguage: '', intervalMin: 30 });
 
   async function load() {
     const data = await api.get<any[]>('/api/sources');
@@ -26,10 +26,11 @@ export default function SourcesPage() {
 
   async function add() {
     try {
-      await api.post('/api/sources', form);
+      const { targetLanguage, ...rest } = form;
+      await api.post('/api/sources', { ...rest, ...(targetLanguage ? { targetLanguage } : {}) });
       toast.success('Kaynak eklendi');
       setOpen(false);
-      setForm({ type: 'RSS', url: '', name: '', language: 'en', intervalMin: 30 });
+      setForm({ type: 'RSS', url: '', name: '', language: 'en', targetLanguage: '', intervalMin: 30 });
       load();
     } catch (e: any) {
       toast.error(e.message);
@@ -90,7 +91,7 @@ export default function SourcesPage() {
               />
               <div className="flex gap-2">
                 <Input
-                  placeholder="Dil (en/tr)"
+                  placeholder="Kaynak dili (en/tr)"
                   value={form.language}
                   onChange={(e) => setForm({ ...form, language: e.target.value })}
                 />
@@ -101,6 +102,11 @@ export default function SourcesPage() {
                   onChange={(e) => setForm({ ...form, intervalMin: Number(e.target.value) })}
                 />
               </div>
+              <Input
+                placeholder="Yayın dili (opsiyonel — boşsa Ayarlar'daki genel dil)"
+                value={form.targetLanguage}
+                onChange={(e) => setForm({ ...form, targetLanguage: e.target.value })}
+              />
               <Button variant="gradient" className="w-full" onClick={add}>
                 Ekle
               </Button>

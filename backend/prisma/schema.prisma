@@ -15,6 +15,7 @@ model User {
   role          UserRole  @default(OWNER)
   timezone      String    @default("Europe/Istanbul")
   defaultMode   PublishMode @default(APPROVAL)
+  publishLanguage String  @default("tr")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -24,6 +25,7 @@ model User {
   accounts      SocialAccount[]
   whatsappConfig WhatsAppConfig?
   canvaConfig   CanvaConfig?
+  assistantConfig AssistantConfig?
   niches        Niche[]
 }
 
@@ -56,6 +58,7 @@ model NewsSource {
   url       String
   name      String
   language  String   @default("en")
+  targetLanguage String?   // boş = kullanıcının genel yayın dili (User.publishLanguage)
   active    Boolean  @default(true)
   intervalMin Int    @default(30)
   lastFetchedAt DateTime?
@@ -262,10 +265,34 @@ model CanvaConfig {
   refreshToken String
   expiresAt    DateTime
   scope        String?
+  defaultTemplateId String?   // otomatik görsel üretiminde kullanılacak şablon
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AssistantConfig {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  enabled   Boolean  @default(false)
+  apiKey    String?
+  baseUrl   String   @default("https://openrouter.ai/api/v1")
+  model     String   @default("qwen/qwen3-next-80b-a3b-instruct:free")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AssistantMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model AuditLog {

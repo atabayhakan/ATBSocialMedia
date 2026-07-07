@@ -17,6 +17,8 @@ class MockStore {
     WhatsAppReply: [],
     CanvaConfig: [],
     AuditLog: [],
+    AssistantConfig: [],
+    AssistantMessage: [],
   };
 
   constructor() {
@@ -38,6 +40,7 @@ class MockStore {
       role: 'OWNER',
       timezone: 'Europe/Istanbul',
       defaultMode: 'APPROVAL',
+      publishLanguage: 'tr',
       createdAt: now,
       updatedAt: now,
     });
@@ -150,6 +153,8 @@ class MockStore {
   whatsAppReply = this.proxy('WhatsAppReply');
   canvaConfig = this.proxy('CanvaConfig');
   auditLog = this.proxy('AuditLog');
+  assistantConfig = this.proxy('AssistantConfig');
+  assistantMessage = this.proxy('AssistantMessage');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli

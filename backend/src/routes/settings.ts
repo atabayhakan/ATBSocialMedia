@@ -12,6 +12,7 @@ router.get('/', async (req, res) => {
 
   res.json({
     defaultMode: user.defaultMode,
+    publishLanguage: user.publishLanguage,
     notifications: {
       telegramConfigured: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       smtpConfigured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
@@ -20,7 +21,8 @@ router.get('/', async (req, res) => {
 });
 
 const settingsSchema = z.object({
-  defaultMode: z.enum(['APPROVAL', 'FULLY_AUTONOMOUS']),
+  defaultMode: z.enum(['APPROVAL', 'FULLY_AUTONOMOUS']).optional(),
+  publishLanguage: z.string().min(2).max(5).optional(),
 });
 
 router.put('/', async (req, res) => {
@@ -31,9 +33,9 @@ router.put('/', async (req, res) => {
 
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { defaultMode: parsed.data.defaultMode },
+    data: parsed.data,
   });
-  res.json({ defaultMode: user.defaultMode });
+  res.json({ defaultMode: user.defaultMode, publishLanguage: user.publishLanguage });
 });
 
 export default router;

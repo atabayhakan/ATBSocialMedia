@@ -79,8 +79,8 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
     let summary = item.contentSnippet || '';
     const imageUrl = item.enclosure?.url;
 
-    const defaultPersona = await prisma.persona.findFirst({ where: { userId: source.userId, isDefault: true } });
-    const userNicheLang = defaultPersona?.language || source.language;
+    const sourceUser = await prisma.user.findUnique({ where: { id: source.userId } });
+    const userNicheLang = source.targetLanguage || sourceUser?.publishLanguage || source.language;
 
     if (source.language !== userNicheLang) {
       try {

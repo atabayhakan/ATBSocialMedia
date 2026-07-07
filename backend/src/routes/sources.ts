@@ -10,6 +10,7 @@ const sourceSchema = z.object({
   url: z.string().url(),
   name: z.string().min(1),
   language: z.string().default('en'),
+  targetLanguage: z.string().min(2).max(5).optional(), // boş = genel yayın dili
   nicheId: z.string().optional(),
   intervalMin: z.number().int().min(5).default(30),
 });

@@ -10,16 +10,26 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
 export default function CanvaPage() {
-  const [status, setStatus] = useState<{ connected: boolean } | null>(null);
+  const [status, setStatus] = useState<{ connected: boolean; defaultTemplateId?: string | null } | null>(null);
   const [templates, setTemplates] = useState<any[]>([]);
   const [fill, setFill] = useState({ title: '', body: '', hashtags: '', templateId: '' });
 
   async function load() {
-    const s = await api.get<{ connected: boolean }>('/api/canva/status');
+    const s = await api.get<{ connected: boolean; defaultTemplateId?: string | null }>('/api/canva/status');
     setStatus(s);
     if (s.connected) {
       const t = await api.get<any[]>('/api/canva/templates');
       setTemplates(t);
+    }
+  }
+
+  async function setDefaultTemplate(templateId: string | null) {
+    try {
+      await api.put('/api/canva/default-template', { templateId });
+      setStatus((s) => (s ? { ...s, defaultTemplateId: templateId } : s));
+      toast.success(templateId ? 'Varsayılan şablon ayarlandı' : 'Varsayılan şablon kaldırıldı');
+    } catch (e: any) {
+      toast.error(e.message);
     }
   }
 
@@ -115,14 +125,25 @@ export default function CanvaPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                {templates.map((t) => (
-                  <div key={t.id} className="rounded-lg border border-border p-3">
-                    {t.thumbnail?.url && (
-                      <img src={t.thumbnail.url} alt={t.title} className="mb-2 h-32 w-full rounded object-cover" />
-                    )}
-                    <p className="truncate text-sm font-medium">{t.title || 'Adsız'}</p>
-                  </div>
-                ))}
+                {templates.map((t) => {
+                  const isDefault = status?.defaultTemplateId === t.id;
+                  return (
+                    <div key={t.id} className={`rounded-lg border p-3 ${isDefault ? 'border-violet-500 bg-violet-500/10' : 'border-border'}`}>
+                      {t.thumbnail?.url && (
+                        <img src={t.thumbnail.url} alt={t.title} className="mb-2 h-32 w-full rounded object-cover" />
+                      )}
+                      <p className="truncate text-sm font-medium">{t.title || 'Adsız'}</p>
+                      <Button
+                        size="sm"
+                        variant={isDefault ? 'gradient' : 'outline'}
+                        className="mt-2 w-full"
+                        onClick={() => setDefaultTemplate(isDefault ? null : t.id)}
+                      >
+                        {isDefault ? '✓ Varsayılan (otomatik görsel)' : 'Varsayılan yap'}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
