@@ -129,7 +129,8 @@ export async function processPendingPosts() {
   });
 
   for (const target of targets) {
-    if (target.status === 'SCHEDULED' && target.post.scheduledAt && target.post.scheduledAt > now) {
+    // Zamanı gelmemiş gönderiyi atla (hedef durumu ne olursa olsun post seviyesinde kontrol)
+    if (target.post.scheduledAt && new Date(target.post.scheduledAt) > now) {
       continue;
     }
     try {

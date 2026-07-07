@@ -21,6 +21,7 @@ import newsRoutes from './routes/news';
 import settingsRoutes from './routes/settings';
 import assistantRoutes from './routes/assistant';
 import searchRoutes from './routes/search';
+import mcpRoutes from './routes/mcp';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -69,6 +70,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/mcp', mcpRoutes);
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 

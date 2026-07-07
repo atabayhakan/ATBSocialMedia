@@ -35,6 +35,9 @@ Thumbs.db
 # WhatsApp oturumları
 backend/.wa-sessions/
 
+# MCP bağlantı yapılandırması (Basic Auth bilgisi içerir)
+.mcp.json
+
 # Prisma
 backend/prisma/migrations/dev/
 *.tsbuildinfo
