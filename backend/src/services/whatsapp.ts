@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { generateWhatsAppReply } from './gemini';
+import { generateWhatsAppReply } from './ai';
 import { notifyCritical } from './notifier';
 
 type BaileysSocket = any;

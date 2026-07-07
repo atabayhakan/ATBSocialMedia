@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { generatePostFromNews } from './gemini';
+import { generatePostFromNews } from './ai';
 import { pickNextNewsItemForUser } from './newsFetcher';
 import { fillCanvaTemplate } from './canva';
 

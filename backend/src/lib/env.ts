@@ -7,7 +7,9 @@ const schema = z.object({
   PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().default('postgresql://mock:mock@localhost:5432/mock'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
-  GEMINI_API_KEY: z.string().default(''),
+  AI_API_KEY: z.string().default(''),
+  AI_BASE_URL: z.string().default('https://api.groq.com/openai/v1'),
+  AI_MODEL: z.string().default('llama-3.3-70b-versatile'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().min(8).default('change-me-in-production'),
   WA_QR_ENABLED: z.string().optional(),
@@ -21,8 +23,8 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-if (isMockMode && !parsed.data.GEMINI_API_KEY) {
-  console.log('ℹ️  MOCK mod: GEMINI_API_KEY boş, sahte yanıtlar kullanılacak.');
+if (isMockMode && !parsed.data.AI_API_KEY) {
+  console.log('ℹ️  MOCK mod: AI_API_KEY boş, sahte yanıtlar kullanılacak.');
 }
 
 export const env = parsed.data;

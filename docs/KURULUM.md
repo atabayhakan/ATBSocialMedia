@@ -54,10 +54,12 @@ değişkenlerin referans listesidir. Gerçek ayarlar `backend\.env` ve
 
 ## 3. Anahtar Servisler
 
-### Google Gemini
-1. https://aistudio.google.com/app/apikey
-2. API key oluştur
-3. `backend/.env` → `GEMINI_API_KEY=...`
+### AI Sağlayıcısı (OpenAI-uyumlu, varsayılan: Groq)
+1. https://console.groq.com/keys — ücretsiz hesap aç, API key oluştur
+2. `backend/.env` → `AI_API_KEY=...`
+3. Farklı sağlayıcı kullanmak istersen `AI_BASE_URL` ve `AI_MODEL`'i değiştir:
+   - OpenRouter: `https://openrouter.ai/api/v1` + ücretsiz model (örn: `meta-llama/llama-3.3-70b-instruct:free`)
+   - Yerel Ollama: `http://localhost:11434/v1` + `llama3.2` vb.
 
 ### Canva Connect (opsiyonel)
 1. https://www.canva.com/developers/apps

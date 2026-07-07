@@ -2,7 +2,7 @@ import Parser from 'rss-parser';
 import axios from 'axios';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { translate } from './gemini';
+import { translate } from './ai';
 
 const parser = new Parser({
   timeout: 15000,

@@ -31,7 +31,7 @@ ATBSocialMedia/
 | Modül                       | Teknoloji                              | Durum |
 | --------------------------- | -------------------------------------- | ----- |
 | Yönetim Paneli              | Next.js 14, Tailwind, shadcn/ui        | ✅    |
-| AI İçerik Üretim            | Google Gemini 1.5 Pro                  | ✅    |
+| AI İçerik Üretim            | OpenAI-uyumlu LLM (Groq varsayılan)    | ✅    |
 | Haber Kaynak Tarayıcı       | rss-parser, cheerio                    | ✅    |
 | Çeviri Motoru               | Gemini (çok dilli)                     | ✅    |
 | Canva Entegrasyonu          | Canva Connect API (Autofill)           | ✅    |
@@ -50,7 +50,7 @@ ATBSocialMedia/
 - Node.js 20+
 - PostgreSQL 14+
 - Redis 7+
-- Google Gemini API key
+- OpenAI-uyumlu bir LLM API anahtarı (ücretsiz: Groq — console.groq.com)
 - (Opsiyonel) Canva Developer hesabı
 - (Opsiyonel) Her platform için OAuth token
 
@@ -65,7 +65,7 @@ copy backend\.env.example backend\.env
 copy frontend\.env.example frontend\.env.local
 
 # backend\.env dosyasını kendi anahtarlarınla düzenle
-# (özellikle GEMINI_API_KEY, DATABASE_URL zorunlu)
+# (özellikle AI_API_KEY, DATABASE_URL zorunlu)
 
 # Postgres + Redis (Docker kuruluysa):
 docker compose up -d

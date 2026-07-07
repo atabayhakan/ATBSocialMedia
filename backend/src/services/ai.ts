@@ -1,17 +1,53 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+// Sağlayıcı-bağımsız LLM servisi. OpenAI-uyumlu /chat/completions API'si kullanan
+// her sağlayıcıyla çalışır (Groq, OpenRouter, Cerebras, Mistral, Ollama...).
+// Sağlayıcı seçimi backend/.env üzerinden: AI_BASE_URL + AI_MODEL + AI_API_KEY.
+// AI_API_KEY boşsa tüm fonksiyonlar mock yanıtlara düşer (geliştirme/mock mod).
+import axios from 'axios';
 import { env } from '../lib/env';
 import { logger } from '../lib/logger';
 import { isMockMode } from '../lib/mode';
 
-let textModel: GenerativeModel | null = null;
-export let visionModel: GenerativeModel | null = null;
+const aiEnabled = !!env.AI_API_KEY && !isMockMode;
 
-if (env.GEMINI_API_KEY && !isMockMode) {
-  const genai = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  textModel = genai.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-pro' });
-  visionModel = genai.getGenerativeModel({ model: process.env.GEMINI_VISION_MODEL || 'gemini-1.5-flash' });
-} else {
-  logger.info('Gemini API key yok veya MOCK mod — sahte yanıtlar kullanılacak');
+if (!aiEnabled) {
+  logger.info('AI_API_KEY yok veya MOCK mod — sahte yanıtlar kullanılacak');
+}
+
+async function chatCompletion(
+  prompt: string,
+  opts: { temperature: number; json: boolean }
+): Promise<string | null> {
+  if (!aiEnabled) return null;
+  try {
+    const { data } = await axios.post(
+      `${env.AI_BASE_URL}/chat/completions`,
+      {
+        model: env.AI_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: opts.temperature,
+        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+      },
+      {
+        headers: { Authorization: `Bearer ${env.AI_API_KEY}` },
+        timeout: 60_000,
+      }
+    );
+    return data?.choices?.[0]?.message?.content ?? null;
+  } catch (e: any) {
+    logger.error({ e: e?.response?.data || e.message }, 'AI chatCompletion hatası');
+    return null;
+  }
+}
+
+async function chatJson(prompt: string, temperature: number): Promise<any | null> {
+  const raw = await chatCompletion(prompt, { temperature, json: true });
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    logger.error({ raw: raw.slice(0, 200) }, 'AI JSON parse hatası');
+    return null;
+  }
 }
 
 export interface PersonaConfig {
@@ -36,11 +72,7 @@ export async function generatePostFromNews(
 ): Promise<GeneratedPost> {
   const lang = targetLanguage || persona.language || 'tr';
 
-  if (!textModel) {
-    return mockGeneratePost(news, lang);
-  }
-
-  const systemPrompt = `Sen bir sosyal medya içerik editörüsün. Görevin: kaynak haberi, belirtilen "persona" tonuyla hedef dile uygun, ilgi çekici, kısa ve öz bir sosyal medya gönderisine dönüştürmek.
+  const prompt = `Sen bir sosyal medya içerik editörüsün. Görevin: kaynak haberi, belirtilen "persona" tonuyla hedef dile uygun, ilgi çekici, kısa ve öz bir sosyal medya gönderisine dönüştürmek.
 
 Kurallar:
 - Başlık: Maksimum 90 karakter, dikkat çekici.
@@ -50,35 +82,29 @@ Kurallar:
 ${persona.voiceRules ? `- Ek kurallar: ${persona.voiceRules}` : ''}
 ${persona.forbiddenTopics ? `- Yasaklı konular: ${persona.forbiddenTopics}` : ''}
 - Sonunda 4-6 adet ilgili hashtag ekle.
+- Sadece verilen haber içeriğindeki bilgiyi kullan; dışarıdan bilgi, yorum veya tahmin ekleme.
 
-Sadece JSON döndür.`;
+Sadece şu şemada JSON döndür: {"title": "...", "body": "...", "hashtags": ["#..."], "summary": "..."}
 
-  const userPrompt = `Kaynak haber (${news.language}):
+Kaynak haber (${news.language}):
 Başlık: ${news.title}
 ${news.summary ? `Özet: ${news.summary}` : ''}
 ${news.content ? `İçerik: ${news.content.slice(0, 4000)}` : ''}
 URL: ${news.url}`;
 
-  try {
-    const result = await textModel.generateContent({
-      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.7 },
-    });
-    const parsed = JSON.parse(result.response.text());
+  const parsed = await chatJson(prompt, 0.7);
+  if (parsed?.title && parsed?.body) {
     return {
       title: parsed.title,
       body: parsed.body,
-      hashtags: parsed.hashtags || [],
-      summary: parsed.summary,
+      hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
+      summary: parsed.summary || parsed.title,
     };
-  } catch (e: any) {
-    logger.error({ e }, 'Gemini generatePostFromNews hatası');
-    return mockGeneratePost(news, lang);
   }
+  return mockGeneratePost(news);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- imza generatePostFromNews ile simetrik tutuluyor
-function mockGeneratePost(news: any, lang: string): GeneratedPost {
+function mockGeneratePost(news: any): GeneratedPost {
   const cleanTitle = news.title.replace(/\s+/g, ' ').trim();
   return {
     title: cleanTitle.length > 90 ? cleanTitle.slice(0, 87) + '...' : cleanTitle,
@@ -89,16 +115,11 @@ function mockGeneratePost(news: any, lang: string): GeneratedPost {
 }
 
 export async function translate(text: string, targetLanguage: string): Promise<string> {
-  if (!textModel) return text;
-  try {
-    const result = await textModel.generateContent(
-      `Aşağıdaki metni ${targetLanguage} diline profesyonelce çevir:\n\n${text}`
-    );
-    return result.response.text().trim();
-  } catch (e: any) {
-    logger.error({ e }, 'Gemini translate hatası');
-    return text;
-  }
+  const result = await chatCompletion(
+    `Aşağıdaki metni ${targetLanguage} diline profesyonelce çevir. Açıklama ekleme, sadece çeviriyi döndür:\n\n${text}`,
+    { temperature: 0.3, json: false }
+  );
+  return result?.trim() || text;
 }
 
 export interface WhatsAppReplyInput {
@@ -115,11 +136,7 @@ export interface WhatsAppReplyOutput {
 export async function generateWhatsAppReply(input: WhatsAppReplyInput): Promise<WhatsAppReplyOutput> {
   const { incoming, persona } = input;
 
-  if (!textModel) {
-    return mockWhatsAppReply(incoming);
-  }
-
-  const systemPrompt = `Sen "${persona.name}" adlı bir müşteri temsilcisi / asistanısın.
+  const prompt = `Sen "${persona.name}" adlı bir müşteri temsilcisi / asistanısın.
 Ton: ${persona.tone}
 Dil: ${persona.language}
 ${persona.voiceRules ? `Ek kurallar: ${persona.voiceRules}` : ''}
@@ -128,22 +145,19 @@ ${persona.forbiddenTopics ? `Yasaklı konular: ${persona.forbiddenTopics}` : ''}
 Gelen mesajı analiz et, uygun, kısa, doğal bir yanıt üret.
 - Ödeme, güvenlik, hukuk, öfke → isCritical: true
 - Aksi → isCritical: false
-Sadece JSON: {"reply": "...", "isCritical": bool}`;
+Sadece JSON döndür: {"reply": "...", "isCritical": bool}
 
-  try {
-    const result = await textModel.generateContent({
-      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\nGelen mesaj:\n' + incoming }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.6 },
-    });
-    const parsed = JSON.parse(result.response.text());
+Gelen mesaj:
+${incoming}`;
+
+  const parsed = await chatJson(prompt, 0.6);
+  if (parsed?.reply) {
     return {
       reply: parsed.reply,
       isCritical: typeof parsed.isCritical === 'boolean' ? parsed.isCritical : false,
     };
-  } catch (e: any) {
-    logger.error({ e }, 'Gemini generateWhatsAppReply hatası');
-    return mockWhatsAppReply(incoming);
   }
+  return mockWhatsAppReply(incoming);
 }
 
 function mockWhatsAppReply(incoming: string): WhatsAppReplyOutput {
@@ -161,17 +175,6 @@ export async function extractImageTextForCanva(
   templatePlaceholders: string[],
   post: GeneratedPost
 ): Promise<Record<string, string>> {
-  if (!textModel) {
-    const out: Record<string, string> = {};
-    templatePlaceholders.forEach((p) => {
-      if (p === 'headline') out[p] = post.title.slice(0, 60);
-      else if (p === 'body') out[p] = post.body.slice(0, 220);
-      else if (p === 'hashtags') out[p] = post.hashtags.join(' ').slice(0, 100);
-      else out[p] = post.title;
-    });
-    return out;
-  }
-
   const prompt = `Aşağıdaki sosyal medya gönderisi için Canva şablonundaki yer tutuculara (placeholders) yerleştirilecek metinleri üret. Sadece JSON döndür.
 
 Yer tutucular: ${JSON.stringify(templatePlaceholders)}
@@ -186,14 +189,15 @@ Kurallar:
 - Her placeholder için uygun uzunlukta metin üret.
 - Karakter sınırlarına dikkat et (başlık: max 60, gövde: max 220).`;
 
-  try {
-    const result = await textModel.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.5 },
-    });
-    return JSON.parse(result.response.text());
-  } catch (e: any) {
-    logger.error({ e }, 'Gemini extractImageTextForCanva hatası');
-    throw e;
-  }
+  const parsed = await chatJson(prompt, 0.5);
+  if (parsed && typeof parsed === 'object') return parsed;
+
+  const out: Record<string, string> = {};
+  templatePlaceholders.forEach((p) => {
+    if (p === 'headline') out[p] = post.title.slice(0, 60);
+    else if (p === 'body') out[p] = post.body.slice(0, 220);
+    else if (p === 'hashtags') out[p] = post.hashtags.join(' ').slice(0, 100);
+    else out[p] = post.title;
+  });
+  return out;
 }
