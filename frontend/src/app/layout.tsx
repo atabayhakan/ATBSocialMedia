@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Toaster } from 'sonner';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'ATBSocialMedia — Otonom Sosyal Medya Platformu',
@@ -9,10 +9,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className="dark">
+    <html lang="tr" suppressHydrationWarning>
       <body className="min-h-screen bg-background">
-        {children}
-        <Toaster theme="dark" position="top-right" richColors />
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

@@ -44,4 +44,52 @@ router.get('/stats', async (_req, res) => {
   });
 });
 
+router.get('/notifications', async (req, res) => {
+  const userId = req.header('x-user-id');
+  const [pending, failed, critical] = await Promise.all([
+    prisma.post.findMany({
+      where: { userId: userId || undefined, status: 'PENDING_APPROVAL' },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    prisma.postTarget.findMany({
+      where: { status: 'FAILED', post: { userId: userId || undefined } },
+      include: { post: true },
+      orderBy: { publishedAt: 'desc' },
+      take: 5,
+    }),
+    prisma.whatsAppReply.findMany({
+      where: { isCritical: true, createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+  ]);
+
+  const items = [
+    ...pending.map((p: any) => ({
+      type: 'PENDING' as const,
+      title: 'Onay bekleyen gönderi',
+      detail: p.title,
+      href: '/dashboard/calendar',
+      createdAt: p.createdAt,
+    })),
+    ...failed.map((t: any) => ({
+      type: 'FAILED' as const,
+      title: `${t.platform} yayını başarısız`,
+      detail: t.error || t.post?.title || '',
+      href: '/dashboard/calendar',
+      createdAt: t.publishedAt || t.post?.updatedAt || new Date(),
+    })),
+    ...critical.map((r: any) => ({
+      type: 'CRITICAL_WA' as const,
+      title: 'Kritik WhatsApp mesajı',
+      detail: r.incomingBody,
+      href: '/dashboard/whatsapp',
+      createdAt: r.createdAt,
+    })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  res.json({ count: items.length, items: items.slice(0, 10) });
+});
+
 export default router;

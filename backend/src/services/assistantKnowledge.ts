@@ -40,6 +40,11 @@ Ayrıca WhatsApp mesajlarına yapay zeka ile otomatik yanıt verebilir.
   içerik otomatik onaylanıp yayınlanır), Yayın Dili (üretilen içeriğin dili), Asistan AI sağlayıcısı,
   bildirim kanallarının durumu (Telegram/SMTP env ile yapılandırılır).
 
+## Üst bar (her sayfada)
+- Ay/Güneş ikonu: koyu ↔ açık tema geçişi (tercih tarayıcıda hatırlanır).
+- Zil ikonu: bildirim merkezi — onay bekleyen gönderiler, başarısız yayınlar, son 48 saatin kritik
+  WhatsApp mesajları. Kırmızı rozet bildirim sayısını gösterir; öğeye tıklamak ilgili sayfaya götürür.
+
 ## İçerik akışı (uçtan uca)
 RSS tarama (cron, 5 dk'da bir) → NewsItem kaydı (gerekirse başlık/özet hedef dile çevrilir) →
 "Şimdi İçerik Üret" veya otomasyon → AI gönderi üretir (başlık+metin+hashtag, yayın dilinde) →
