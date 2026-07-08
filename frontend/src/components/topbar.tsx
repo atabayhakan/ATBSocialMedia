@@ -166,7 +166,7 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          title={resolvedTheme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç'}
+          title={mounted && resolvedTheme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç'}
           onClick={() => setTheme(resolvedTheme === 'light' ? 'dark' : 'light')}
         >
           {/* mounted olmadan tema bilinmez (SSR); hidrasyon uyuşmazlığını önle */}
