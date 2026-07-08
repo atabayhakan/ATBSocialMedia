@@ -54,16 +54,25 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
     const { data } = await axios.get(source.url, { timeout: 15000 });
     const cheerio = await import('cheerio');
     const $ = cheerio.load(data);
-    $('article, .post, .entry').each((_: number, el: any) => {
-      const title = $(el).find('h1, h2, h3').first().text().trim();
-      const link = $(el).find('a').first().attr('href') || '';
-      if (title && link) {
-        items.push({
-          title,
-          link: new URL(link, source.url).toString(),
-          contentSnippet: $(el).find('p').first().text().trim().slice(0, 400),
-        });
-      }
+    // .post/.entry tam class eşleşmesi ister; çoğu site "post_wrapper", "news-card" gibi
+    // alt-string varyantları kullanır — [class*=] ile bunları da yakala.
+    const CARD_SELECTOR =
+      'article, .post, .entry, [class*="post"], [class*="entry"], [class*="article"]';
+    const seenLinks = new Set<string>();
+    $(CARD_SELECTOR).each((_: number, el: any) => {
+      const $el = $(el);
+      if ($el.find(CARD_SELECTOR).length > 0) return; // dış sarmalayıcıyı atla, sadece en içteki kartı al
+      const title = $el.find('h1, h2, h3').first().text().trim();
+      const href = $el.find('a').first().attr('href') || '';
+      if (!title || !href) return;
+      const link = new URL(href, source.url).toString();
+      if (seenLinks.has(link)) return;
+      seenLinks.add(link);
+      items.push({
+        title,
+        link,
+        contentSnippet: $el.find('p').first().text().trim().slice(0, 400),
+      });
     });
   }
 
