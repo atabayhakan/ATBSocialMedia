@@ -19,6 +19,11 @@ jobs:
       - name: Bağımlılıklar
         run: npm ci
 
+      # Üretim bağımlılıklarında kritik zafiyet varsa derlemeyi durdur.
+      # (dev/build zinciri ve düşük seviyeler hariç — yalnız gerçek runtime riski.)
+      - name: Güvenlik denetimi (üretim, kritik)
+        run: npm audit --omit=dev --audit-level=critical
+
       - name: Prisma client
         run: npx prisma generate
         working-directory: backend

@@ -77,7 +77,11 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express hata middleware'ini 4 parametreden tanır, _next kaldırılamaz
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error({ err }, 'Unhandled error');
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  const status = err.status || 500;
+  // Üretimde 5xx'lerde iç hata detayını gizle (bilgi sızıntısı); 4xx mesajları
+  // (doğrulama vb.) kullanıcıya yararlı olduğu için korunur.
+  const expose = status < 500 || env.NODE_ENV !== 'production';
+  res.status(status).json({ error: (expose && err.message) || 'Internal server error' });
 });
 
 async function bootstrap() {
@@ -95,8 +99,11 @@ async function bootstrap() {
 
     startScheduler();
 
-    app.listen(env.PORT, () => {
-      logger.info(`🚀 Backend ${env.PORT} portunda çalışıyor (${env.NODE_ENV})`);
+    // Üretimde yalnız loopback'e bağlan: dış trafik reverse proxy (Caddy) üzerinden
+    // gelmek zorunda kalır, backend portu doğrudan internete açılamaz (ufw + savunma derinliği).
+    const host = env.HOST || (env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
+    app.listen(env.PORT, host, () => {
+      logger.info(`🚀 Backend ${host}:${env.PORT} portunda çalışıyor (${env.NODE_ENV})`);
     });
   } catch (e) {
     logger.error({ e }, 'Bootstrap hatası');

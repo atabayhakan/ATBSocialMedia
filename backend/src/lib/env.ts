@@ -5,6 +5,9 @@ import { isMockMode } from './mode';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test', 'mock']).default('development'),
   PORT: z.coerce.number().default(4000),
+  // Dinlenecek arayüz. Üretimde varsayılan 127.0.0.1 (yalnız yerel reverse proxy
+  // erişir); geliştirmede 0.0.0.0. Gerekirse açıkça override edilebilir.
+  HOST: z.string().optional(),
   DATABASE_URL: z.string().default('postgresql://mock:mock@localhost:5432/mock'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   AI_API_KEY: z.string().default(''),
@@ -13,7 +16,6 @@ const schema = z.object({
   // Virgülle ayrılmış yedek modeller (OpenRouter'a özgü otomatik failover)
   AI_FALLBACK_MODELS: z.string().default(''),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
-  JWT_SECRET: z.string().min(8).default('change-me-in-production'),
   // 64 hex karakter (32 bayt) — DB'deki token/anahtar şifrelemesi için
   ENCRYPTION_KEY: z.string().default(''),
   // MCP endpoint'i için panel şifresinden bağımsız erişim anahtarı.
@@ -32,6 +34,26 @@ if (!parsed.success) {
 
 if (isMockMode && !parsed.data.AI_API_KEY) {
   console.log('ℹ️  MOCK mod: AI_API_KEY boş, sahte yanıtlar kullanılacak.');
+}
+
+// Üretimde güvenlik-kritik sırlar zorunlu: eksik/hatalıysa açılışta reddet.
+// (Geliştirme/mock/test'te sessiz varsayılanlar kabul edilir.)
+if (parsed.data.NODE_ENV === 'production') {
+  const problems: string[] = [];
+  if (!parsed.data.ENCRYPTION_KEY) {
+    problems.push('ENCRYPTION_KEY tanımsız — DB sırları düz metin saklanır');
+  } else if (Buffer.from(parsed.data.ENCRYPTION_KEY, 'hex').length !== 32) {
+    problems.push('ENCRYPTION_KEY 32 bayt (64 hex karakter) olmalı');
+  }
+  if (!parsed.data.MCP_TOKEN) {
+    problems.push('MCP_TOKEN tanımsız — MCP endpoint kimlik doğrulamasız açık kalır');
+  }
+  if (problems.length) {
+    console.error(
+      '❌ Üretimde güvenlik gereksinimleri karşılanmadı:\n  - ' + problems.join('\n  - ')
+    );
+    process.exit(1);
+  }
 }
 
 export const env = parsed.data;
