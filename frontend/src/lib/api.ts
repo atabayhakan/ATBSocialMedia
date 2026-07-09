@@ -23,7 +23,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new ApiError(text || res.statusText, res.status);
+    // Backend hataları { error: "..." } (bazen zod .flatten() nesnesi) döner —
+    // ham JSON'ı toast'ta göstermek yerine mesajı çıkar.
+    let message = text || res.statusText;
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.error === 'string') message = parsed.error;
+      else if (parsed?.error) message = JSON.stringify(parsed.error);
+    } catch {
+      // JSON değil (örn. HTML hata sayfası) — ham metni kullan
+    }
+    throw new ApiError(message, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

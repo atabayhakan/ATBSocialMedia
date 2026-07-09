@@ -8,6 +8,13 @@ const router = Router();
 router.get('/connect', (req, res) => {
   const userId = req.header('x-user-id');
   if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  // Eksik env ile Canva'nın kendi (kafa karıştırıcı) 400 hata sayfasına
+  // yönlendirmek yerine burada anlaşılır bir hata döndür.
+  if (!process.env.CANVA_CLIENT_ID || !process.env.CANVA_REDIRECT_URI) {
+    return res.status(400).json({
+      error: 'Canva entegrasyonu henüz yapılandırılmamış (CANVA_CLIENT_ID / CANVA_REDIRECT_URI sunucu .env dosyasında boş).',
+    });
+  }
   const state = crypto.randomBytes(16).toString('hex');
   res.json({ url: getAuthorizeUrl(state), state });
 });

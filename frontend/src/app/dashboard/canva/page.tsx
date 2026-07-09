@@ -38,8 +38,12 @@ export default function CanvaPage() {
   }, []);
 
   async function connect() {
-    const r = await api.get<{ url: string }>('/api/canva/connect');
-    window.location.href = r.url;
+    try {
+      const r = await api.get<{ url: string }>('/api/canva/connect');
+      window.location.href = r.url;
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   }
 
   async function autofill() {
