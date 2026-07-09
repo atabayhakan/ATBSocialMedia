@@ -152,6 +152,7 @@ class MockStore {
   whatsAppMessage = this.proxy('WhatsAppMessage');
   whatsAppReply = this.proxy('WhatsAppReply');
   canvaConfig = this.proxy('CanvaConfig');
+  imageTemplate = this.proxy('ImageTemplate');
   auditLog = this.proxy('AuditLog');
   assistantConfig = this.proxy('AssistantConfig');
   assistantMessage = this.proxy('AssistantMessage');

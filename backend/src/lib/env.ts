@@ -16,6 +16,14 @@ const schema = z.object({
   // Virgülle ayrılmış yedek modeller (OpenRouter'a özgü otomatik failover)
   AI_FALLBACK_MODELS: z.string().default(''),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  // Panelin (frontend) genel-erişimli temel URL'i — OAuth callback sonrası
+  // tarayıcı yönlendirmesi için.
+  APP_URL: z.string().default('http://localhost:3000'),
+  // Backend'in genel-erişimli temel URL'i — /media altında üretilen görsellerin
+  // dışa açılan (Instagram vb. çekebilsin) linkleri için. Üretimde Caddy aynı
+  // domain'i path'e göre yönlendirdiğinden APP_URL ile aynıdır (boş bırakılabilir).
+  // Yerel geliştirmede frontend/backend farklı portta olduğundan ayrı verilebilir.
+  MEDIA_BASE_URL: z.string().default(''),
   // 64 hex karakter (32 bayt) — DB'deki token/anahtar şifrelemesi için
   ENCRYPTION_KEY: z.string().default(''),
   // MCP endpoint'i için panel şifresinden bağımsız erişim anahtarı.
@@ -57,3 +65,6 @@ if (parsed.data.NODE_ENV === 'production') {
 }
 
 export const env = parsed.data;
+
+// Medya (/media) linkleri için kullanılacak taban URL — bkz. MEDIA_BASE_URL yorumu.
+export const mediaBaseUrl = env.MEDIA_BASE_URL || env.APP_URL;

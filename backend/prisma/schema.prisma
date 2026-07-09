@@ -27,6 +27,7 @@ model User {
   canvaConfig   CanvaConfig?
   assistantConfig AssistantConfig?
   niches        Niche[]
+  imageTemplates ImageTemplate[]
 }
 
 enum UserRole {
@@ -259,6 +260,35 @@ model WhatsAppReply {
   messages     WhatsAppMessage[]
 
   @@index([configId, createdAt])
+}
+
+model ImageTemplate {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  backgroundPath  String   // uploads/templates/ altındaki dosya yolu
+  width           Int      @default(1080)
+  height          Int      @default(1350)
+  panelPosition   PanelPosition @default(BOTTOM)
+  textColor       TextColor     @default(LIGHT)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum PanelPosition {
+  TOP
+  CENTER
+  BOTTOM
+}
+
+enum TextColor {
+  LIGHT
+  DARK
 }
 
 model CanvaConfig {

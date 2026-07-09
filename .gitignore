@@ -35,6 +35,9 @@ Thumbs.db
 # WhatsApp oturumları
 backend/.wa-sessions/
 
+# Kullanıcı yüklemeleri / üretilen görseller
+backend/uploads/
+
 # MCP bağlantı yapılandırması (Basic Auth bilgisi içerir)
 .mcp.json
 

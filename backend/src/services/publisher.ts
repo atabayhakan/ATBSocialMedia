@@ -1,10 +1,15 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import { mediaBaseUrl } from '../lib/env';
 import { decryptSecret } from '../lib/crypto';
 import { generatePostFromNews } from './ai';
 import { pickNextNewsItemForUser } from './newsFetcher';
 import { fillCanvaTemplate } from './canva';
+import { renderPostImage, type PanelPosition, type TextColor } from './imageRenderer';
 
 export async function generatePostForUser(userId: string, opts?: { nicheId?: string }) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -40,25 +45,50 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
     targetLanguage
   );
 
-  const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
   let canvaDesignId: string | undefined;
   const mediaUrls: string[] = [];
 
-  if (canvaCfg) {
+  // Öncelik: kendi (ücretsiz, self-hosted) görsel şablonumuz — Canva Autofill
+  // Enterprise plana kilitli olduğu için varsayılan yol burası.
+  const imageTemplate = await prisma.imageTemplate.findFirst({ where: { userId, isDefault: true } });
+  if (imageTemplate) {
     try {
-      const design = await fillCanvaTemplate(
-        userId,
+      const buf = await renderPostImage(
         {
-          title: generated.title,
-          body: generated.body,
-          hashtags: generated.hashtags,
+          backgroundPath: imageTemplate.backgroundPath,
+          width: imageTemplate.width,
+          height: imageTemplate.height,
+          panelPosition: imageTemplate.panelPosition as PanelPosition,
+          textColor: imageTemplate.textColor as TextColor,
         },
-        canvaCfg.defaultTemplateId || undefined
+        { title: generated.title, body: generated.body, hashtags: generated.hashtags }
       );
-      canvaDesignId = design.id;
-      if (design.exportUrl) mediaUrls.push(design.exportUrl);
+      const generatedDir = path.join(__dirname, '../../uploads/generated');
+      fs.mkdirSync(generatedDir, { recursive: true });
+      const fileName = `${randomUUID()}.png`;
+      fs.writeFileSync(path.join(generatedDir, fileName), buf);
+      mediaUrls.push(`${mediaBaseUrl}/media/generated/${fileName}`);
     } catch (e: any) {
-      logger.warn({ e }, 'Canva tasarımı oluşturulamadı, görselsiz devam edilecek');
+      logger.warn({ e }, 'Görsel şablonundan render başarısız, Canva/haber görseline düşülecek');
+    }
+  } else {
+    const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
+    if (canvaCfg) {
+      try {
+        const design = await fillCanvaTemplate(
+          userId,
+          {
+            title: generated.title,
+            body: generated.body,
+            hashtags: generated.hashtags,
+          },
+          canvaCfg.defaultTemplateId || undefined
+        );
+        canvaDesignId = design.id;
+        if (design.exportUrl) mediaUrls.push(design.exportUrl);
+      } catch (e: any) {
+        logger.warn({ e }, 'Canva tasarımı oluşturulamadı, görselsiz devam edilecek');
+      }
     }
   }
 

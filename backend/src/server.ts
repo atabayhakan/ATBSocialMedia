@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 import { env } from './lib/env';
 import { logger } from './lib/logger';
@@ -22,6 +23,7 @@ import settingsRoutes from './routes/settings';
 import assistantRoutes from './routes/assistant';
 import searchRoutes from './routes/search';
 import mcpRoutes from './routes/mcp';
+import imageTemplatesRoutes from './routes/imageTemplates';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -71,6 +73,17 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/mcp', mcpRoutes);
+app.use('/api/image-templates', imageTemplatesRoutes);
+
+// Üretilen/yüklenen görseller — Instagram/Facebook/TikTok gibi dış servislerin
+// paylaşım sırasında görseli çekebilmesi için kimlik doğrulamasız (genel-erişimli).
+// Caddy'de de bu yol basic auth'tan muaf tutulur. helmet'in varsayılan
+// same-origin CORP'u bilinçli olarak gevşetiyoruz — içerik zaten genel-erişimli.
+app.use('/media', (_req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+});
+app.use('/media', express.static(path.join(__dirname, '../uploads')));
 
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 

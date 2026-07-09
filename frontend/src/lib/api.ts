@@ -12,10 +12,13 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'demo-user' : 'demo-user';
+  // FormData gövdesinde Content-Type'ı elle koymuyoruz — tarayıcı multipart
+  // boundary'sini kendisi eklemeli, yoksa yükleme sunucuda parse edilemez.
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       'x-user-id': userId,
       ...(init.headers || {}),
     },
@@ -44,4 +47,5 @@ export const api = {
   post: <T>(p: string, body?: any) => request<T>(p, { method: 'POST', body: JSON.stringify(body) }),
   put: <T>(p: string, body?: any) => request<T>(p, { method: 'PUT', body: JSON.stringify(body) }),
   del: <T>(p: string) => request<T>(p, { method: 'DELETE' }),
+  upload: <T>(p: string, formData: FormData) => request<T>(p, { method: 'POST', body: formData }),
 };

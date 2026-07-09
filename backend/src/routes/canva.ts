@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
+import { env } from '../lib/env';
 import { getAuthorizeUrl, exchangeCodeForToken, generatePkce, listTemplates, fillCanvaTemplate } from '../services/canva';
 
 const router = Router();
@@ -36,7 +37,7 @@ router.get('/callback', async (req, res) => {
     await redis.del(`canva:oauth:${state}`);
     const { userId, codeVerifier } = JSON.parse(raw);
     await exchangeCodeForToken(code as string, userId, codeVerifier);
-    res.redirect(`${process.env.APP_URL || 'http://localhost:3000'}/dashboard/canva?connected=1`);
+    res.redirect(`${env.APP_URL}/dashboard/canva?connected=1`);
   } catch (e: any) {
     res.status(500).send(`Canva bağlantı hatası: ${e.message}`);
   }
