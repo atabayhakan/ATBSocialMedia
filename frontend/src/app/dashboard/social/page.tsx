@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Twitter, Linkedin, Instagram, Facebook, Music2, Send, Bird } from 'lucide-react';
+import { Plus, Trash2, Pencil, Twitter, Linkedin, Instagram, Facebook, Music2, Send, Bird } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const platformIcons: Record<string, any> = {
@@ -40,16 +41,36 @@ const platformHints: Record<string, { externalId: string; accessToken: string; h
   BLUESKY: { externalId: 'Handle (örn: atb.bsky.social)', accessToken: 'App Password', help: 'Bluesky → Settings → App Passwords’tan üret (normal şifreni girme). Onay gerekmez.' },
 };
 
+const emptyForm = {
+  platform: 'TWITTER',
+  accountName: '',
+  externalId: '',
+  accessToken: '',
+  refreshToken: '',
+  expiresAt: '',
+};
+
+// <input type="datetime-local"> yerel saat bekler (ISO değil, saat dilimi eki yok).
+function toLocalInputValue(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function expiryBadge(expiresAt?: string | null) {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms < 0) return <Badge variant="destructive">Süresi doldu</Badge>;
+  if (ms < 24 * 60 * 60 * 1000) return <Badge variant="warning">Yakında doluyor</Badge>;
+  return <Badge variant="secondary">Bitiş: {formatDate(expiresAt)}</Badge>;
+}
+
 export default function SocialPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    platform: 'TWITTER',
-    accountName: '',
-    externalId: '',
-    accessToken: '',
-    refreshToken: '',
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
   async function load() {
     const data = await api.get<any[]>('/api/social/accounts');
@@ -60,12 +81,38 @@ export default function SocialPage() {
     load().catch(console.error);
   }, []);
 
-  async function add() {
+  function openAdd() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setOpen(true);
+  }
+
+  function openEdit(a: any) {
+    setEditingId(a.id);
+    setForm({
+      platform: a.platform,
+      accountName: a.accountName,
+      externalId: a.externalId,
+      accessToken: '',
+      refreshToken: '',
+      expiresAt: toLocalInputValue(a.expiresAt),
+    });
+    setOpen(true);
+  }
+
+  async function save() {
     try {
-      await api.post('/api/social/accounts', form);
-      toast.success('Hesap eklendi');
+      const body = { ...form, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null };
+      if (editingId) {
+        await api.put(`/api/social/accounts/${editingId}`, body);
+        toast.success('Hesap güncellendi');
+      } else {
+        await api.post('/api/social/accounts', body);
+        toast.success('Hesap eklendi');
+      }
       setOpen(false);
-      setForm({ platform: 'TWITTER', accountName: '', externalId: '', accessToken: '', refreshToken: '' });
+      setEditingId(null);
+      setForm(emptyForm);
       load();
     } catch (e: any) {
       toast.error(e.message);
@@ -86,19 +133,20 @@ export default function SocialPage() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="gradient">
+            <Button variant="gradient" onClick={openAdd}>
               <Plus className="mr-2 h-4 w-4" /> Hesap Ekle
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Yeni Sosyal Hesap</DialogTitle>
+              <DialogTitle>{editingId ? 'Hesabı Düzenle' : 'Yeni Sosyal Hesap'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <select
                 value={form.platform}
                 onChange={(e) => setForm({ ...form, platform: e.target.value })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                disabled={!!editingId}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
               >
                 <option value="TWITTER">Twitter / X</option>
                 <option value="LINKEDIN">LinkedIn</option>
@@ -111,10 +159,28 @@ export default function SocialPage() {
               <p className="text-xs text-muted-foreground">{platformHints[form.platform]?.help}</p>
               <Input placeholder="Hesap adı (panelde görünecek)" value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} />
               <Input placeholder={platformHints[form.platform]?.externalId || 'External ID'} value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} />
-              <Input type="password" placeholder={platformHints[form.platform]?.accessToken || 'Access Token'} value={form.accessToken} onChange={(e) => setForm({ ...form, accessToken: e.target.value })} />
-              <Input type="password" placeholder="Refresh Token (opsiyonel)" value={form.refreshToken} onChange={(e) => setForm({ ...form, refreshToken: e.target.value })} />
-              <Button variant="gradient" className="w-full" onClick={add}>
-                Kaydet
+              <Input
+                type="password"
+                placeholder={editingId ? 'Boş bırak = mevcut token korunur' : platformHints[form.platform]?.accessToken || 'Access Token'}
+                value={form.accessToken}
+                onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
+              />
+              <Input
+                type="password"
+                placeholder={editingId ? 'Boş bırak = mevcut refresh token korunur' : 'Refresh Token (opsiyonel)'}
+                value={form.refreshToken}
+                onChange={(e) => setForm({ ...form, refreshToken: e.target.value })}
+              />
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Son kullanma tarihi (opsiyonel)</label>
+                <Input
+                  type="datetime-local"
+                  value={form.expiresAt}
+                  onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+                />
+              </div>
+              <Button variant="gradient" className="w-full" onClick={save}>
+                {editingId ? 'Güncelle' : 'Kaydet'}
               </Button>
             </div>
           </DialogContent>
@@ -137,10 +203,16 @@ export default function SocialPage() {
                       <p className="text-xs text-muted-foreground">{a.platform}</p>
                     </div>
                   </div>
-                  <Badge variant={a.active ? 'success' : 'secondary'}>{a.active ? 'Aktif' : 'Pasif'}</Badge>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Badge variant={a.active ? 'success' : 'secondary'}>{a.active ? 'Aktif' : 'Pasif'}</Badge>
+                    {expiryBadge(a.expiresAt)}
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => openEdit(a)}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => remove(a.id)}>
                   <Trash2 className="mr-1 h-3.5 w-3.5" /> Kaldır
                 </Button>

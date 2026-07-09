@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import {
   Bell, Moon, Sun, Search, Clock, AlertTriangle, MessageCircle, CheckCircle2,
-  LayoutDashboard, FileText, Rss, Users, Share2, Loader2,
+  LayoutDashboard, FileText, Rss, Users, Share2, Loader2, KeyRound,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { api } from '@/lib/api';
 import { timeAgo } from '@/lib/utils';
 
 interface NotificationItem {
-  type: 'PENDING' | 'FAILED' | 'CRITICAL_WA';
+  type: 'PENDING' | 'FAILED' | 'CRITICAL_WA' | 'ACCOUNT_EXPIRING';
   title: string;
   detail: string;
   href: string;
@@ -23,6 +23,7 @@ const typeIcons = {
   PENDING: { icon: Clock, color: 'text-amber-400' },
   FAILED: { icon: AlertTriangle, color: 'text-rose-400' },
   CRITICAL_WA: { icon: MessageCircle, color: 'text-cyan-400' },
+  ACCOUNT_EXPIRING: { icon: KeyRound, color: 'text-orange-400' },
 };
 
 interface SearchResult {

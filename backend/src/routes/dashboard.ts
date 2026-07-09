@@ -46,7 +46,7 @@ router.get('/stats', async (_req, res) => {
 
 router.get('/notifications', async (req, res) => {
   const userId = req.header('x-user-id');
-  const [pending, failed, critical] = await Promise.all([
+  const [pending, failed, critical, expiringAccounts] = await Promise.all([
     prisma.post.findMany({
       where: { userId: userId || undefined, status: 'PENDING_APPROVAL' },
       orderBy: { createdAt: 'desc' },
@@ -63,7 +63,18 @@ router.get('/notifications', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
+    // Süresi ayarlı, aktif hesaplar (eşik filtresi aşağıda JS'te uygulanır —
+    // mock store Prisma'nın lte/top-level NOT operatörlerini desteklemiyor).
+    prisma.socialAccount.findMany({
+      where: { userId: userId || undefined, active: true, expiresAt: { not: null } },
+      orderBy: { expiresAt: 'asc' },
+    }),
   ]);
+
+  const expiryThreshold = Date.now() + 24 * 60 * 60 * 1000;
+  const expiringSoon = expiringAccounts
+    .filter((a: any) => new Date(a.expiresAt).getTime() <= expiryThreshold)
+    .slice(0, 5);
 
   const items = [
     ...pending.map((p: any) => ({
@@ -86,6 +97,16 @@ router.get('/notifications', async (req, res) => {
       detail: r.incomingBody,
       href: '/dashboard/whatsapp',
       createdAt: r.createdAt,
+    })),
+    ...expiringSoon.map((a: any) => ({
+      type: 'ACCOUNT_EXPIRING' as const,
+      title:
+        new Date(a.expiresAt).getTime() < Date.now()
+          ? `${a.platform} bağlantısının süresi doldu`
+          : `${a.platform} bağlantısının süresi yakında doluyor`,
+      detail: a.accountName,
+      href: '/dashboard/social',
+      createdAt: a.expiresAt,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
