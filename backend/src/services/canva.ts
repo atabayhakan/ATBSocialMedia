@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { randomBytes, createHash } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { encryptSecret, decryptSecret } from '../lib/crypto';
@@ -13,24 +14,35 @@ function canvaClient(accessToken: string) {
   });
 }
 
-export function getAuthorizeUrl(state: string) {
+// Canva Connect API, OAuth 2.0 Authorization Code akışında PKCE zorunlu kılıyor
+// (code_verifier olmadan token exchange reddedilir).
+export function generatePkce() {
+  const codeVerifier = randomBytes(32).toString('base64url');
+  const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+  return { codeVerifier, codeChallenge };
+}
+
+export function getAuthorizeUrl(state: string, codeChallenge: string) {
   const params = new URLSearchParams({
     client_id: process.env.CANVA_CLIENT_ID || '',
     response_type: 'code',
     redirect_uri: process.env.CANVA_REDIRECT_URI || '',
     scope: 'design:content:read design:content:write design:meta:read asset:read asset:write',
     state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 's256',
   });
   return `https://www.canva.com/api/oauth/authorize?${params.toString()}`;
 }
 
-export async function exchangeCodeForToken(code: string, userId: string) {
+export async function exchangeCodeForToken(code: string, userId: string, codeVerifier: string) {
   const { data } = await axios.post('https://api.canva.com/rest/v1/oauth/token', {
     grant_type: 'authorization_code',
     code,
     client_id: process.env.CANVA_CLIENT_ID,
     client_secret: process.env.CANVA_CLIENT_SECRET,
     redirect_uri: process.env.CANVA_REDIRECT_URI,
+    code_verifier: codeVerifier,
   });
 
   await prisma.canvaConfig.upsert({
