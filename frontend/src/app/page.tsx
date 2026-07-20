@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Sparkles, ArrowRight, Bot, Calendar, MessageCircle, Palette, Zap, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -18,16 +17,17 @@ export default function HomePage() {
           <span className="text-xl font-bold gradient-text">ATBSocialMedia</span>
         </div>
         <div className="flex items-center gap-3">
-          {/* prefetch kapalı: /dashboard Basic Auth korumalı; prefetch açık olsa
-              sayfa açılır açılmaz tarayıcı giriş penceresi açar (bkz. atb-vps-deployment). */}
-          <Link href="/dashboard" prefetch={false}>
+          {/* Düz <a>: /dashboard Basic Auth korumalı. Next.js <Link> bu rotayı
+              sayfa açılışında prefetch edip tarayıcının giriş penceresini fırlatıyordu.
+              Düz anchor hiç prefetch yapmaz; pencere yalnızca kullanıcı tıklayınca çıkar. */}
+          <a href="/dashboard">
             <Button variant="ghost">Giriş</Button>
-          </Link>
-          <Link href="/dashboard" prefetch={false}>
+          </a>
+          <a href="/dashboard">
             <Button variant="gradient">
               Panele Git <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </Link>
+          </a>
         </div>
       </nav>
 
@@ -46,16 +46,16 @@ export default function HomePage() {
           ve WhatsApp dahil tüm kanallarına sen uyurken paylaşır.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/dashboard" prefetch={false}>
+          <a href="/dashboard">
             <Button size="lg" variant="gradient">
               Hemen Başla <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-          </Link>
-          <Link href="/dashboard/whatsapp" prefetch={false}>
+          </a>
+          <a href="/dashboard/whatsapp">
             <Button size="lg" variant="outline">
               WhatsApp Bağla
             </Button>
-          </Link>
+          </a>
         </div>
       </section>
 
