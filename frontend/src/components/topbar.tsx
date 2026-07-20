@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useSession, signOut } from 'next-auth/react';
 import {
   Bell, Moon, Sun, Search, Clock, AlertTriangle, MessageCircle, CheckCircle2,
-  LayoutDashboard, FileText, Rss, Users, Share2, Loader2, KeyRound,
+  LayoutDashboard, FileText, Rss, Users, Share2, Loader2, KeyRound, LogOut,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const searchIcons = {
 };
 
 export function Topbar() {
+  const { data: session } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<{ count: number; items: NotificationItem[] }>({
@@ -68,18 +70,28 @@ export function Topbar() {
       setSearchOpen(false);
       return;
     }
+    // active guard: sorgu değişince önceki isteğin (geç dönen) cevabı yeni sonucu ezmesin.
+    let active = true;
     setSearching(true);
     const t = setTimeout(() => {
       api
         .get<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`)
         .then((r) => {
+          if (!active) return;
           setResults(r.results);
           setSearchOpen(true);
         })
-        .catch(() => setResults([]))
-        .finally(() => setSearching(false));
+        .catch(() => {
+          if (active) setResults([]);
+        })
+        .finally(() => {
+          if (active) setSearching(false);
+        });
     }, 300);
-    return () => clearTimeout(t);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
   }, [query]);
 
   useEffect(() => {
@@ -197,7 +209,10 @@ export function Topbar() {
               ) : (
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.items.map((n, i) => {
-                    const { icon: Icon, color } = typeIcons[n.type];
+                    // Backend bilinmeyen bir tip döndürürse tüm listeyi çökertme (guard).
+                    const meta = typeIcons[n.type];
+                    if (!meta) return null;
+                    const { icon: Icon, color } = meta;
                     return (
                       <button
                         key={i}
@@ -221,6 +236,22 @@ export function Topbar() {
             </div>
           )}
         </div>
+
+        {session?.user && (
+          <div className="flex items-center gap-2 border-l border-border pl-3">
+            <span className="hidden max-w-32 truncate text-sm text-muted-foreground sm:inline">
+              {session.user.name || session.user.email}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Çıkış yap"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   );

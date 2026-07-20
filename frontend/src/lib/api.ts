@@ -1,3 +1,5 @@
+import { getSession, signOut } from 'next-auth/react';
+
 // Boş bırakılırsa göreli URL kullanılır: istekler aynı origin'e gider ve
 // next.config.js rewrites (veya prod'da reverse proxy) backend'e yönlendirir.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -11,7 +13,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || 'demo-user' : 'demo-user';
+  // NextAuth oturumundaki backend JWT'sini taşı — backend artık bu token'ı
+  // doğrulayıp isteği hangi kullanıcı adına yapıldığını belirliyor (bkz. backend/src/middleware/auth.ts).
+  const session = await getSession();
   // FormData gövdesinde Content-Type'ı elle koymuyoruz — tarayıcı multipart
   // boundary'sini kendisi eklemeli, yoksa yükleme sunucuda parse edilemez.
   const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
@@ -19,12 +23,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      'x-user-id': userId,
+      ...(session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {}),
       ...(init.headers || {}),
     },
     cache: 'no-store',
   });
   if (!res.ok) {
+    // Backend oturumu geçersiz/expired (ör. backend restart'ında JWT_SECRET yeniden
+    // üretildi). NextAuth cookie'si hâlâ geçerli olsa bile kullanıcıyı sessiz boş
+    // panelde bırakma — merkezi olarak login'e düşür.
+    if (res.status === 401 && typeof window !== 'undefined') {
+      await signOut({ callbackUrl: '/login' });
+    }
     const text = await res.text();
     // Backend hataları { error: "..." } (bazen zod .flatten() nesnesi) döner —
     // ham JSON'ı toast'ta göstermek yerine mesajı çıkar.

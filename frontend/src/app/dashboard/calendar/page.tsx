@@ -22,6 +22,8 @@ const platformIcons: Record<string, any> = {
 export default function CalendarPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [tab, setTab] = useState('PENDING_APPROVAL');
+  // Bir aksiyon uçuştayken ilgili gönderinin butonlarını kilitler (çift-submit koruması).
+  const [acting, setActing] = useState<string | null>(null);
 
   async function load() {
     const data = await api.get<any[]>(`/api/posts?status=${tab}`);
@@ -29,44 +31,36 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
-    load().catch(console.error);
+    // Sekme hızlı değişirse eski isteğin cevabı yeni sekmenin verisini ezmesin (ignore guard).
+    let active = true;
+    api
+      .get<any[]>(`/api/posts?status=${tab}`)
+      .then((data) => active && setPosts(data))
+      .catch((e) => active && console.error(e));
+    return () => {
+      active = false;
+    };
   }, [tab]);
 
-  async function approve(id: string) {
+  async function runAction(id: string, fn: () => Promise<void>, okMsg: string) {
+    if (acting) return;
+    setActing(id);
     try {
-      await api.post(`/api/posts/${id}/approve`, {});
-      toast.success('Onaylandı');
-      load();
+      await fn();
+      toast.success(okMsg);
+      await load();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message || 'İşlem başarısız');
+    } finally {
+      setActing(null);
     }
   }
 
-  async function reject(id: string) {
-    await api.post(`/api/posts/${id}/reject`, {});
-    toast('Reddedildi');
-    load();
-  }
-
-  async function publishNow(id: string) {
-    try {
-      await api.post(`/api/posts/${id}/publish`, {});
-      toast.success('Yayınlandı');
-      load();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  }
-
-  async function retryTarget(postId: string, targetId: string) {
-    try {
-      await api.post(`/api/posts/${postId}/publish`, { targetId });
-      toast.success('Yeniden denendi');
-      load();
-    } catch (e: any) {
-      toast.error(e.message || 'Tekrar deneme başarısız');
-    }
-  }
+  const approve = (id: string) => runAction(id, () => api.post(`/api/posts/${id}/approve`, {}), 'Onaylandı');
+  const reject = (id: string) => runAction(id, () => api.post(`/api/posts/${id}/reject`, {}), 'Reddedildi');
+  const publishNow = (id: string) => runAction(id, () => api.post(`/api/posts/${id}/publish`, {}), 'Yayınlandı');
+  const retryTarget = (postId: string, targetId: string) =>
+    runAction(postId, () => api.post(`/api/posts/${postId}/publish`, { targetId }), 'Yeniden denendi');
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -108,8 +102,9 @@ export default function CalendarPage() {
                           <button
                             key={t.id}
                             title={t.error || 'Yayınlanamadı — tekrar dene'}
+                            disabled={acting === p.id}
                             onClick={() => retryTarget(p.id, t.id)}
-                            className="flex items-center gap-1 rounded-md bg-rose-500/15 p-1.5 text-rose-400 hover:bg-rose-500/25"
+                            className="flex items-center gap-1 rounded-md bg-rose-500/15 p-1.5 text-rose-400 hover:bg-rose-500/25 disabled:opacity-50"
                           >
                             <Icon className="h-3.5 w-3.5" />
                             <RotateCcw className="h-3 w-3" />
@@ -149,16 +144,16 @@ export default function CalendarPage() {
                 <div className="mt-4 flex gap-2">
                   {tab === 'PENDING_APPROVAL' && (
                     <>
-                      <Button size="sm" variant="gradient" onClick={() => approve(p.id)}>
+                      <Button size="sm" variant="gradient" disabled={acting === p.id} onClick={() => approve(p.id)}>
                         <Check className="mr-1 h-3.5 w-3.5" /> Onayla
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => reject(p.id)}>
+                      <Button size="sm" variant="ghost" disabled={acting === p.id} onClick={() => reject(p.id)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Reddet
                       </Button>
                     </>
                   )}
                   {(tab === 'APPROVED' || tab === 'SCHEDULED') && (
-                    <Button size="sm" variant="gradient" onClick={() => publishNow(p.id)}>
+                    <Button size="sm" variant="gradient" disabled={acting === p.id} onClick={() => publishNow(p.id)}>
                       Şimdi Yayınla
                     </Button>
                   )}

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, RefreshCw, Rss } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ export default function SourcesPage() {
   const [sources, setSources] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ type: 'RSS', url: '', name: '', language: 'en', targetLanguage: '', intervalMin: 30 });
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function load() {
     const data = await api.get<any[]>('/api/sources');
@@ -22,6 +23,10 @@ export default function SourcesPage() {
 
   useEffect(() => {
     load().catch(console.error);
+    // Bekleyen tarama-sonrası yenileme timer'ını unmount'ta temizle.
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    };
   }, []);
 
   async function add() {
@@ -38,9 +43,14 @@ export default function SourcesPage() {
   }
 
   async function remove(id: string) {
-    await api.del(`/api/sources/${id}`);
-    toast.success('Silindi');
-    load();
+    if (!confirm('Bu kaynağı silmek istediğine emin misin?')) return;
+    try {
+      await api.del(`/api/sources/${id}`);
+      toast.success('Silindi');
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Silinemedi');
+    }
   }
 
   async function refresh(id: string) {
@@ -49,7 +59,8 @@ export default function SourcesPage() {
       success: 'Tamamlandı',
       error: 'Hata',
     });
-    setTimeout(load, 3000);
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => load().catch(console.error), 3000);
   }
 
   return (

@@ -68,8 +68,14 @@ export default function PersonasPage() {
   }
 
   async function remove(id: string) {
-    await api.del(`/api/personas/${id}`);
-    load();
+    if (!confirm('Bu personayı silmek istediğine emin misin?')) return;
+    try {
+      await api.del(`/api/personas/${id}`);
+      toast.success('Silindi');
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Silinemedi');
+    }
   }
 
   return (

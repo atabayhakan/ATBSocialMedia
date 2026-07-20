@@ -39,7 +39,8 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     load().catch(console.error);
-    const t = setInterval(load, 5000);
+    // Interval tetiklemelerini de yakala (yakalanmayan promise reddini önle).
+    const t = setInterval(() => load().catch(console.error), 5000);
     return () => clearInterval(t);
   }, []);
 

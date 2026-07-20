@@ -90,8 +90,14 @@ export default function TemplatesPage() {
   }
 
   async function remove(id: string) {
-    await api.del(`/api/image-templates/${id}`);
-    load();
+    if (!confirm('Bu şablonu silmek istediğine emin misin?')) return;
+    try {
+      await api.del(`/api/image-templates/${id}`);
+      toast.success('Silindi');
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Silinemedi');
+    }
   }
 
   async function makeDefault(t: ImageTemplate) {

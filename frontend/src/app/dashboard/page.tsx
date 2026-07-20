@@ -29,15 +29,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load().catch(console.error);
-    const t = setInterval(load, 30000);
+    // Interval'in her tetiklemesini de yakala (aksi halde yakalanmayan promise reddi).
+    const t = setInterval(() => load().catch(console.error), 30000);
     return () => clearInterval(t);
   }, []);
 
   async function generateNow() {
     setLoading(true);
     try {
-      const userId = localStorage.getItem('userId') || 'demo-user';
-      const post = await api.post('/api/posts/generate', { userId });
+      // Kullanıcı backend token'ından türetiliyor; gövdedeki userId yok sayılıyordu (ölü kod kaldırıldı).
+      await api.post('/api/posts/generate', {});
       toast.success('Yeni taslak oluşturuldu');
       load();
     } catch (e: any) {

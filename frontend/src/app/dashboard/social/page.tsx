@@ -120,8 +120,14 @@ export default function SocialPage() {
   }
 
   async function remove(id: string) {
-    await api.del(`/api/social/accounts/${id}`);
-    load();
+    if (!confirm('Bu hesabı kaldırmak istediğine emin misin?')) return;
+    try {
+      await api.del(`/api/social/accounts/${id}`);
+      toast.success('Kaldırıldı');
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Kaldırılamadı');
+    }
   }
 
   return (

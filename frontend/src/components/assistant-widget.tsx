@@ -1,10 +1,13 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getSession } from 'next-auth/react';
 import { Bot, X, Send, FileText, Trash2, Copy, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 interface Msg {
   id?: string;
@@ -34,8 +37,10 @@ export function AssistantWidget() {
     loadedRef.current = true;
     api
       .get<Msg[]>('/api/assistant/history')
-      .then((h) => setMessages(h.length ? h : [WELCOME]))
-      .catch(() => setMessages([WELCOME]));
+      // Geçmiş yüklenmeden kullanıcı mesaj yazdıysa (messages doldu) onu EZME —
+      // yalnız hâlâ boşken geçmişi (yoksa karşılamayı) uygula.
+      .then((h) => setMessages((m) => (m.length ? m : h.length ? h : [WELCOME])))
+      .catch(() => setMessages((m) => (m.length ? m : [WELCOME])));
   }, [open]);
 
   useEffect(() => {
@@ -78,8 +83,12 @@ export function AssistantWidget() {
   async function makeReport() {
     setBusy(true);
     try {
-      const userId = localStorage.getItem('userId') || 'demo-user';
-      const res = await fetch('/api/assistant/report', { headers: { 'x-user-id': userId } });
+      // Yanıt düz metin (markdown) döndüğü için api.ts'in JSON'a zorlayan
+      // request()'ini değil, doğrudan fetch'i kullanıyoruz.
+      const session = await getSession();
+      const res = await fetch(`${API_URL}/api/assistant/report`, {
+        headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+      });
       if (!res.ok) throw new Error(await res.text());
       setReport(await res.text());
       setCopied(false);
