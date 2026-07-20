@@ -18,10 +18,12 @@ export default function HomePage() {
           <span className="text-xl font-bold gradient-text">ATBSocialMedia</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard">
+          {/* prefetch kapalı: /dashboard Basic Auth korumalı; prefetch açık olsa
+              sayfa açılır açılmaz tarayıcı giriş penceresi açar (bkz. atb-vps-deployment). */}
+          <Link href="/dashboard" prefetch={false}>
             <Button variant="ghost">Giriş</Button>
           </Link>
-          <Link href="/dashboard">
+          <Link href="/dashboard" prefetch={false}>
             <Button variant="gradient">
               Panele Git <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -44,12 +46,12 @@ export default function HomePage() {
           ve WhatsApp dahil tüm kanallarına sen uyurken paylaşır.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/dashboard">
+          <Link href="/dashboard" prefetch={false}>
             <Button size="lg" variant="gradient">
               Hemen Başla <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
-          <Link href="/dashboard/whatsapp">
+          <Link href="/dashboard/whatsapp" prefetch={false}>
             <Button size="lg" variant="outline">
               WhatsApp Bağla
             </Button>
