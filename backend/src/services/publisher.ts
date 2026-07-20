@@ -20,100 +20,105 @@ export async function generatePostForUser(userId: string, opts?: { nicheId?: str
   });
   if (!persona) throw new Error('Aktif persona bulunamadı');
 
+  // pickNextNewsItemForUser haberi ATOMİK olarak sahiplenir (used=true) — böylece
+  // eşzamanlı iki üretim aynı haberden mükerrer gönderi üretemez (race koruması).
   const newsItem = await pickNextNewsItemForUser(userId);
   if (!newsItem) throw new Error('Yayınlanacak uygun haber bulunamadı');
 
-  // Dil önceliği: kaynağa özel dil > kullanıcının genel yayın dili > persona dili
-  const newsSource = await prisma.newsSource.findUnique({ where: { id: newsItem.sourceId } });
-  const targetLanguage = newsSource?.targetLanguage || user.publishLanguage || persona.language;
-
-  const generated = await generatePostFromNews(
-    {
-      title: newsItem.title,
-      summary: newsItem.summary,
-      content: newsItem.content,
-      url: newsItem.url,
-      language: newsItem.language,
-    },
-    {
-      name: persona.name,
-      tone: persona.tone,
-      language: persona.language,
-      voiceRules: persona.voiceRules,
-      forbiddenTopics: persona.forbiddenTopics,
-    },
-    targetLanguage
-  );
-
-  let canvaDesignId: string | undefined;
   const mediaUrls: string[] = [];
+  let canvaDesignId: string | undefined;
+  let post!: Awaited<ReturnType<typeof prisma.post.create>>;
 
-  // Öncelik: kendi (ücretsiz, self-hosted) görsel şablonumuz — Canva Autofill
-  // Enterprise plana kilitli olduğu için varsayılan yol burası.
-  const imageTemplate = await prisma.imageTemplate.findFirst({ where: { userId, isDefault: true } });
-  if (imageTemplate) {
-    try {
-      const buf = await renderPostImage(
-        {
-          backgroundPath: imageTemplate.backgroundPath,
-          width: imageTemplate.width,
-          height: imageTemplate.height,
-          panelPosition: imageTemplate.panelPosition as PanelPosition,
-          textColor: imageTemplate.textColor as TextColor,
-        },
-        { title: generated.title, body: generated.body, hashtags: generated.hashtags }
-      );
-      const generatedDir = path.join(__dirname, '../../uploads/generated');
-      fs.mkdirSync(generatedDir, { recursive: true });
-      const fileName = `${randomUUID()}.png`;
-      fs.writeFileSync(path.join(generatedDir, fileName), buf);
-      mediaUrls.push(`${mediaBaseUrl}/media/generated/${fileName}`);
-    } catch (e: any) {
-      logger.warn({ e }, 'Görsel şablonundan render başarısız, Canva/haber görseline düşülecek');
-    }
-  } else {
-    const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
-    if (canvaCfg) {
+  // Gönderi oluşturulana kadar herhangi bir adım başarısız olursa (özellikle AI
+  // üretimi) haberi tekrar seçilebilir yap — transient hata haberi boşa harcamasın.
+  try {
+    // Dil önceliği: kaynağa özel dil > kullanıcının genel yayın dili > persona dili
+    const newsSource = await prisma.newsSource.findUnique({ where: { id: newsItem.sourceId } });
+    const targetLanguage = newsSource?.targetLanguage || user.publishLanguage || persona.language;
+
+    const generated = await generatePostFromNews(
+      {
+        title: newsItem.title,
+        summary: newsItem.summary,
+        content: newsItem.content,
+        url: newsItem.url,
+        language: newsItem.language,
+      },
+      {
+        name: persona.name,
+        tone: persona.tone,
+        language: persona.language,
+        voiceRules: persona.voiceRules,
+        forbiddenTopics: persona.forbiddenTopics,
+      },
+      targetLanguage
+    );
+
+    // Öncelik: kendi (ücretsiz, self-hosted) görsel şablonumuz — Canva Autofill
+    // Enterprise plana kilitli olduğu için varsayılan yol burası.
+    const imageTemplate = await prisma.imageTemplate.findFirst({ where: { userId, isDefault: true } });
+    if (imageTemplate) {
       try {
-        const design = await fillCanvaTemplate(
-          userId,
+        const buf = await renderPostImage(
           {
-            title: generated.title,
-            body: generated.body,
-            hashtags: generated.hashtags,
+            backgroundPath: imageTemplate.backgroundPath,
+            width: imageTemplate.width,
+            height: imageTemplate.height,
+            panelPosition: imageTemplate.panelPosition as PanelPosition,
+            textColor: imageTemplate.textColor as TextColor,
           },
-          canvaCfg.defaultTemplateId || undefined
+          { title: generated.title, body: generated.body, hashtags: generated.hashtags }
         );
-        canvaDesignId = design.id;
-        if (design.exportUrl) mediaUrls.push(design.exportUrl);
+        const generatedDir = path.join(__dirname, '../../uploads/generated');
+        fs.mkdirSync(generatedDir, { recursive: true });
+        const fileName = `${randomUUID()}.png`;
+        fs.writeFileSync(path.join(generatedDir, fileName), buf);
+        mediaUrls.push(`${mediaBaseUrl}/media/generated/${fileName}`);
       } catch (e: any) {
-        logger.warn({ e }, 'Canva tasarımı oluşturulamadı, görselsiz devam edilecek');
+        logger.warn({ e }, 'Görsel şablonundan render başarısız, Canva/haber görseline düşülecek');
+      }
+    } else {
+      const canvaCfg = await prisma.canvaConfig.findUnique({ where: { userId } });
+      if (canvaCfg) {
+        try {
+          const design = await fillCanvaTemplate(
+            userId,
+            {
+              title: generated.title,
+              body: generated.body,
+              hashtags: generated.hashtags,
+            },
+            canvaCfg.defaultTemplateId || undefined
+          );
+          canvaDesignId = design.id;
+          if (design.exportUrl) mediaUrls.push(design.exportUrl);
+        } catch (e: any) {
+          logger.warn({ e }, 'Canva tasarımı oluşturulamadı, görselsiz devam edilecek');
+        }
       }
     }
+
+    if (newsItem.imageUrl) mediaUrls.push(newsItem.imageUrl);
+
+    post = await prisma.post.create({
+      data: {
+        userId,
+        personaId: persona.id,
+        nicheId: opts?.nicheId,
+        sourceItemId: newsItem.id,
+        status: 'PENDING_APPROVAL',
+        mode: user.defaultMode,
+        title: generated.title,
+        body: generated.body,
+        hashtags: generated.hashtags,
+        mediaUrls,
+        canvaDesignId,
+      },
+    });
+  } catch (e) {
+    await prisma.newsItem.update({ where: { id: newsItem.id }, data: { used: false } }).catch(() => {});
+    throw e;
   }
-
-  if (newsItem.imageUrl) mediaUrls.push(newsItem.imageUrl);
-
-  const post = await prisma.post.create({
-    data: {
-      userId,
-      personaId: persona.id,
-      nicheId: opts?.nicheId,
-      sourceItemId: newsItem.id,
-      status: 'PENDING_APPROVAL',
-      mode: user.defaultMode,
-      title: generated.title,
-      body: generated.body,
-      hashtags: generated.hashtags,
-      mediaUrls,
-      canvaDesignId,
-    },
-  });
-
-  await prisma.newsItem.update({
-    where: { id: newsItem.id },
-    data: { used: true },
-  });
 
   if (user.defaultMode === 'FULLY_AUTONOMOUS') {
     return approvePost(post.id);
@@ -127,9 +132,15 @@ export async function approvePost(postId: string, scheduledAt?: Date) {
   if (!post) throw new Error('Gönderi bulunamadı');
 
   const targets = await prisma.postTarget.findMany({ where: { postId } });
-  const accounts = await prisma.socialAccount.findMany({ where: { userId: post.userId, active: true } });
 
-  if (targets.length === 0 && accounts.length > 0) {
+  // Hedef yoksa aktif hesaplardan üret. Hiç aktif hesap yoksa "target'sız APPROVED"
+  // çıkmazına düşmek yerine açık hata ver — post PENDING_APPROVAL'da kalır, sessizce
+  // yayınlanamaz durumda takılmaz.
+  if (targets.length === 0) {
+    const accounts = await prisma.socialAccount.findMany({ where: { userId: post.userId, active: true } });
+    if (accounts.length === 0) {
+      throw new Error('Aktif sosyal hesap yok — önce Sosyal Hesaplar sayfasından bir hesap bağla');
+    }
     await prisma.postTarget.createMany({
       data: accounts.map((a: any) => ({
         postId: post.id,
@@ -184,24 +195,56 @@ export async function processPendingPosts() {
   }
 }
 
+// Post'un tüm hedefleri terminal (PUBLISHED/FAILED/REJECTED) olduğunda post'u nihai
+// duruma taşır. Kısmi başarıda bile post APPROVED/SCHEDULED'da sonsuza dek takılmaz.
+// REJECTED/PUBLISHED/FAILED post'a dokunmaz — in-flight yayın bitse bile reddedilmiş
+// post "diriltilmez".
+async function finalizePostStatus(postId: string) {
+  const targets = await prisma.postTarget.findMany({ where: { postId } });
+  if (targets.length === 0) return;
+  const stillWorking = targets.some(
+    (t: any) => t.status === 'APPROVED' || t.status === 'SCHEDULED' || t.status === 'PUBLISHING'
+  );
+  if (stillWorking) return;
+
+  const anyPublished = targets.some((t: any) => t.status === 'PUBLISHED');
+  const anyFailed = targets.some((t: any) => t.status === 'FAILED');
+
+  await prisma.post.updateMany({
+    where: { id: postId, status: { in: ['APPROVED', 'SCHEDULED', 'PUBLISHING'] } },
+    data: {
+      status: anyPublished ? 'PUBLISHED' : 'FAILED',
+      publishedAt: anyPublished ? new Date() : null,
+      error: anyFailed ? (anyPublished ? 'Bazı kanallara yayınlanamadı' : 'Hiçbir kanala yayınlanamadı') : null,
+    },
+  });
+}
+
 export async function publishToPlatform(postId: string, targetId: string) {
+  // ATOMİK sahiplenme: yalnız işlenebilir (APPROVED/SCHEDULED veya FAILED-retry) bir
+  // hedefi PUBLISHING'e al. Eşzamanlı başka bir tick/manuel çağrı hedefi çoktan
+  // sahiplendiyse (PUBLISHING/PUBLISHED/REJECTED) count 0 döner ve sessizce atlanır —
+  // bu, çift yayını (aynı gönderinin iki kez paylaşılması) engelleyen kilittir.
+  const claim = await prisma.postTarget.updateMany({
+    where: { id: targetId, status: { in: ['APPROVED', 'SCHEDULED', 'FAILED'] } },
+    data: { status: 'PUBLISHING', error: null },
+  });
+  if (claim.count === 0) return;
+
   const target = await prisma.postTarget.findUnique({
     where: { id: targetId },
     include: { post: true, account: true },
   });
-  if (!target) throw new Error('Target bulunamadı');
-
-  // Token'lar DB'de şifreli durur; sadece kullanım anında bellekte çözülür
-  target.account.accessToken = decryptSecret(target.account.accessToken)!;
-  target.account.refreshToken = decryptSecret(target.account.refreshToken);
-
-  await prisma.postTarget.update({
-    where: { id: targetId },
-    data: { status: 'PUBLISHING', error: null },
-  });
+  if (!target) return;
 
   let externalId = '';
   try {
+    // Token'lar DB'de şifreli durur; sadece kullanım anında bellekte çözülür. Decrypt
+    // PUBLISHING geçişinden SONRA ve try içinde — bozuk token/eksik anahtarda hedef
+    // FAILED olur (aksi halde her 2 dk'da sessizce sonsuz retry ederdi).
+    target.account.accessToken = decryptSecret(target.account.accessToken)!;
+    target.account.refreshToken = decryptSecret(target.account.refreshToken);
+
     switch (target.platform) {
       case 'TWITTER':
         externalId = await publishTwitter(target);
@@ -231,6 +274,7 @@ export async function publishToPlatform(postId: string, targetId: string) {
       where: { id: targetId },
       data: { status: 'FAILED', error: message },
     });
+    await finalizePostStatus(postId);
     throw e;
   }
 
@@ -243,16 +287,12 @@ export async function publishToPlatform(postId: string, targetId: string) {
     },
   });
 
-  const remaining = await prisma.postTarget.count({
-    where: { postId, status: { not: 'PUBLISHED' } },
-  });
-  if (remaining === 0) {
-    await prisma.post.update({
-      where: { id: postId },
-      data: { status: 'PUBLISHED', publishedAt: new Date() },
-    });
-  }
+  await finalizePostStatus(postId);
 }
+
+// Platform HTTP çağrıları için üst sınır — timeout'suz axios çağrısı TCP seviyesinde
+// süresiz asılabilir, bu da sweepStuckTargets ile yarışıp yanlış FAILED/çift yayına yol açar.
+const PUBLISH_TIMEOUT = 30_000;
 
 const TWEET_LIMIT = 280;
 const TWEET_URL_WEIGHT = 23; // Twitter her linki uzunluğundan bağımsız 23 karakter sayar
@@ -283,7 +323,7 @@ async function publishTwitter(target: any): Promise<string> {
   const { data } = await axios.post(
     'https://api.twitter.com/2/tweets',
     { text },
-    { headers: { Authorization: `Bearer ${target.account.accessToken}` } }
+    { headers: { Authorization: `Bearer ${target.account.accessToken}` }, timeout: PUBLISH_TIMEOUT }
   );
   return data?.data?.id;
 }
@@ -310,7 +350,7 @@ async function publishLinkedIn(target: any): Promise<string> {
       },
       visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
     },
-    { headers: { Authorization: `Bearer ${target.account.accessToken}`, 'X-Restli-Protocol-Version': '2.0.0' } }
+    { headers: { Authorization: `Bearer ${target.account.accessToken}`, 'X-Restli-Protocol-Version': '2.0.0' }, timeout: PUBLISH_TIMEOUT }
   );
   return data?.id;
 }
@@ -321,12 +361,14 @@ async function publishInstagram(target: any): Promise<string> {
   const caption = `${target.post.title}\n\n${target.post.body}\n\n${target.post.hashtags.join(' ')}`;
   const creation = await axios.post(
     `https://graph.facebook.com/v20.0/${igUserId}/media`,
-    { image_url: target.post.mediaUrls[0], caption, access_token: target.account.accessToken }
+    { image_url: target.post.mediaUrls[0], caption, access_token: target.account.accessToken },
+    { timeout: PUBLISH_TIMEOUT }
   );
   const containerId = creation.data.id;
   const publish = await axios.post(
     `https://graph.facebook.com/v20.0/${igUserId}/media_publish`,
-    { creation_id: containerId, access_token: target.account.accessToken }
+    { creation_id: containerId, access_token: target.account.accessToken },
+    { timeout: PUBLISH_TIMEOUT }
   );
   return publish.data.id;
 }
@@ -337,7 +379,8 @@ async function publishFacebook(target: any): Promise<string> {
   if (target.post.mediaUrls[0]) body.link = target.post.mediaUrls[0];
   const { data } = await axios.post(
     `https://graph.facebook.com/v20.0/${target.account.externalId}/feed`,
-    body
+    body,
+    { timeout: PUBLISH_TIMEOUT }
   );
   return data.id;
 }
@@ -352,18 +395,19 @@ async function publishTelegram(target: any): Promise<string> {
 
   if (imageUrl) {
     // sendPhoto caption sınırı 1024 karakter
-    const { data } = await axios.post(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-      chat_id: chatId,
-      photo: imageUrl,
-      caption: text.slice(0, 1024),
-    });
+    const { data } = await axios.post(
+      `https://api.telegram.org/bot${botToken}/sendPhoto`,
+      { chat_id: chatId, photo: imageUrl, caption: text.slice(0, 1024) },
+      { timeout: PUBLISH_TIMEOUT }
+    );
     return String(data?.result?.message_id ?? '');
   }
 
-  const { data } = await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    chat_id: chatId,
-    text: text.slice(0, 4096),
-  });
+  const { data } = await axios.post(
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
+    { chat_id: chatId, text: text.slice(0, 4096) },
+    { timeout: PUBLISH_TIMEOUT }
+  );
   return String(data?.result?.message_id ?? '');
 }
 
@@ -373,10 +417,11 @@ const BSKY_LIMIT = 300;
 
 async function publishBluesky(target: any): Promise<string> {
   const service = 'https://bsky.social';
-  const session = await axios.post(`${service}/xrpc/com.atproto.server.createSession`, {
-    identifier: target.account.externalId,
-    password: target.account.accessToken,
-  });
+  const session = await axios.post(
+    `${service}/xrpc/com.atproto.server.createSession`,
+    { identifier: target.account.externalId, password: target.account.accessToken },
+    { timeout: PUBLISH_TIMEOUT }
+  );
   const { accessJwt, did } = session.data;
   const authHeaders = { Authorization: `Bearer ${accessJwt}` };
 
@@ -401,6 +446,7 @@ async function publishBluesky(target: any): Promise<string> {
       const upload = await axios.post(`${service}/xrpc/com.atproto.repo.uploadBlob`, img.data, {
         headers: { ...authHeaders, 'Content-Type': contentType },
         maxBodyLength: Infinity,
+        timeout: PUBLISH_TIMEOUT,
       });
       record.embed = {
         $type: 'app.bsky.embed.images',
@@ -414,7 +460,7 @@ async function publishBluesky(target: any): Promise<string> {
   const { data } = await axios.post(
     `${service}/xrpc/com.atproto.repo.createRecord`,
     { repo: did, collection: 'app.bsky.feed.post', record },
-    { headers: authHeaders }
+    { headers: authHeaders, timeout: PUBLISH_TIMEOUT }
   );
   return data?.uri || '';
 }
@@ -428,7 +474,7 @@ async function publishTikTok(target: any): Promise<string> {
       post_info: { title: caption, privacy_level: 'PUBLIC' },
       source_info: { source: 'PULL_FROM_URL', video_url: target.post.mediaUrls[0] },
     },
-    { headers: { Authorization: `Bearer ${target.account.accessToken}` } }
+    { headers: { Authorization: `Bearer ${target.account.accessToken}` }, timeout: PUBLISH_TIMEOUT }
   );
   return init.data?.data?.publish_id;
 }

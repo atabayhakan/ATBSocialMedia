@@ -88,6 +88,10 @@ const TOOLS: McpTool[] = [
       additionalProperties: false,
     },
     handler: async (args) => {
+      // Sahiplik kısıtı: MCP token'ı yalnız DEFAULT_USER'ın gönderilerini yönetebilir
+      // (list_posts ile mutasyonlar arasındaki kapsam tutarsızlığını giderir).
+      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId: DEFAULT_USER } });
+      if (!owned) throw new Error('Gönderi bulunamadı');
       const scheduledAt = args.scheduledAt ? new Date(args.scheduledAt) : undefined;
       if (scheduledAt && isNaN(scheduledAt.getTime())) throw new Error('Geçersiz scheduledAt tarihi');
       const post = await approvePost(args.postId, scheduledAt);
@@ -106,8 +110,18 @@ const TOOLS: McpTool[] = [
       additionalProperties: false,
     },
     handler: async (args) => {
-      const post = await prisma.post.update({ where: { id: args.postId }, data: { status: 'REJECTED' } });
-      return `Reddedildi: "${post.title}"`;
+      const { count } = await prisma.post.updateMany({
+        where: { id: args.postId, userId: DEFAULT_USER },
+        data: { status: 'REJECTED' },
+      });
+      if (!count) throw new Error('Gönderi bulunamadı');
+      // Bekleyen hedefleri de iptal et (scheduler yayınlamaya devam etmesin).
+      await prisma.postTarget.updateMany({
+        where: { postId: args.postId, status: { in: ['PENDING_APPROVAL', 'APPROVED', 'SCHEDULED'] } },
+        data: { status: 'REJECTED' },
+      });
+      const post = await prisma.post.findUnique({ where: { id: args.postId } });
+      return `Reddedildi: "${post?.title ?? args.postId}"`;
     },
   },
   {
@@ -120,6 +134,9 @@ const TOOLS: McpTool[] = [
       additionalProperties: false,
     },
     handler: async (args) => {
+      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId: DEFAULT_USER } });
+      if (!owned) throw new Error('Gönderi bulunamadı');
+      if (owned.status === 'REJECTED') return 'Reddedilmiş gönderi yayınlanamaz.';
       const targets = await prisma.postTarget.findMany({ where: { postId: args.postId } });
       if (!targets.length) return 'Bu gönderinin yayın hedefi yok (önce approve_post ile onayla; bağlı sosyal hesap olduğundan emin ol).';
       const results: string[] = [];

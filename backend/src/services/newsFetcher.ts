@@ -80,40 +80,49 @@ export async function fetchSingleSource(sourceId: string): Promise<FetchResult> 
   for (const item of items) {
     if (!item.link) continue; // url alanı zorunlu/unique; link'siz öğe eklenemez
 
-    const externalId = item.link;
-    const exists = await prisma.newsItem.findUnique({ where: { url: item.link } });
-    if (exists) continue;
+    // Tek bir öğenin hatası (mükerrer url/P2002 yarışı, çeviri, geçersiz veri) tüm
+    // turu kesmemeli — böylece kalan öğeler ve lastFetchedAt güncellemesi atlanmaz.
+    try {
+      const externalId = item.link;
+      const exists = await prisma.newsItem.findUnique({ where: { url: item.link } });
+      if (exists) continue;
 
-    let title = item.title;
-    let summary = item.contentSnippet || '';
-    const imageUrl = item.enclosure?.url;
+      let title = item.title;
+      let summary = item.contentSnippet || '';
+      const imageUrl = item.enclosure?.url;
 
-    const sourceUser = await prisma.user.findUnique({ where: { id: source.userId } });
-    const userNicheLang = source.targetLanguage || sourceUser?.publishLanguage || source.language;
+      const sourceUser = await prisma.user.findUnique({ where: { id: source.userId } });
+      const userNicheLang = source.targetLanguage || sourceUser?.publishLanguage || source.language;
 
-    if (source.language !== userNicheLang) {
-      try {
-        title = await translate(item.title, userNicheLang);
-        if (summary) summary = await translate(summary, userNicheLang);
-      } catch {
-        /* çeviri başarısızsa orijinali kullan */
+      if (source.language !== userNicheLang) {
+        try {
+          title = await translate(item.title, userNicheLang);
+          if (summary) summary = await translate(summary, userNicheLang);
+        } catch {
+          /* çeviri başarısızsa orijinali kullan */
+        }
+      }
+
+      await prisma.newsItem.create({
+        data: {
+          sourceId: source.id,
+          externalId,
+          title,
+          summary,
+          content: item.content || null,
+          url: item.link,
+          imageUrl,
+          language: userNicheLang,
+          publishedAt: item.isoDate ? new Date(item.isoDate) : item.pubDate ? new Date(item.pubDate) : null,
+        },
+      });
+      newCount++;
+    } catch (e: any) {
+      // Eşzamanlı tarama aynı url'i araya sokmuş olabilir (P2002) — sessizce atla.
+      if (e?.code !== 'P2002') {
+        logger.warn({ e, url: item.link, sourceId: source.id }, 'Haber öğesi kaydedilemedi, atlanıyor');
       }
     }
-
-    await prisma.newsItem.create({
-      data: {
-        sourceId: source.id,
-        externalId,
-        title,
-        summary,
-        content: item.content || null,
-        url: item.link,
-        imageUrl,
-        language: userNicheLang,
-        publishedAt: item.isoDate ? new Date(item.isoDate) : item.pubDate ? new Date(item.pubDate) : null,
-      },
-    });
-    newCount++;
   }
 
   await prisma.newsSource.update({
@@ -133,12 +142,25 @@ export async function pickNextNewsItemForUser(userId: string) {
   const sources = await prisma.newsSource.findMany({
     where: { active: true, nicheId: niche.id },
   });
-  const sourceIds = new Set(sources.map((s: any) => s.id));
-  if (sourceIds.size === 0) return null;
+  const sourceIds = sources.map((s: any) => s.id);
+  if (sourceIds.length === 0) return null;
 
+  // Yalnız bu kullanıcının kaynaklarındaki kullanılmamış haberler (belleğe tüm
+  // tabloyu değil, ilgili kaynakları çeker).
   const items = await prisma.newsItem.findMany({
-    where: { used: false },
+    where: { used: false, sourceId: { in: sourceIds } },
     orderBy: { publishedAt: 'desc' },
   });
-  return items.find((i: any) => sourceIds.has(i.sourceId)) || null;
+
+  // ATOMİK sahiplen: haberi burada used=true yap. updateMany yalnız hâlâ used=false
+  // ise (count===1) sahiplenir; eşzamanlı başka bir üretim aynı haberi kaptıysa
+  // count 0 döner ve sıradaki habere geçilir — aynı haberden mükerrer gönderiyi önler.
+  for (const item of items) {
+    const claim = await prisma.newsItem.updateMany({
+      where: { id: item.id, used: false },
+      data: { used: true },
+    });
+    if (claim.count === 1) return { ...item, used: true };
+  }
+  return null;
 }

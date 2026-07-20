@@ -1,12 +1,22 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { encryptSecret } from '../lib/crypto';
 
 const router = Router();
 
+const createAccountSchema = z.object({
+  platform: z.enum(['TWITTER', 'LINKEDIN', 'INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'TELEGRAM', 'BLUESKY']),
+  accountName: z.string().min(1),
+  externalId: z.string().min(1),
+  accessToken: z.string().min(1),
+  refreshToken: z.string().optional(),
+  expiresAt: z.string().optional(),
+  meta: z.record(z.any()).optional(),
+});
+
 router.get('/accounts', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const accounts = await prisma.socialAccount.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -15,9 +25,10 @@ router.get('/accounts', async (req, res) => {
 });
 
 router.post('/accounts', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
-  const { platform, accountName, externalId, accessToken, refreshToken, expiresAt, meta } = req.body;
+  const userId = req.userId!;
+  const parsed = createAccountSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { platform, accountName, externalId, accessToken, refreshToken, expiresAt, meta } = parsed.data;
   const account = await prisma.socialAccount.create({
     data: {
       userId,
@@ -35,8 +46,7 @@ router.post('/accounts', async (req, res) => {
 });
 
 router.put('/accounts/:id', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const { accountName, externalId, accessToken, refreshToken, expiresAt } = req.body;
 
   // Boş bırakılan accessToken/refreshToken mevcut değeri korur (kullanıcı yalnızca
@@ -60,8 +70,7 @@ router.put('/accounts/:id', async (req, res) => {
 });
 
 router.delete('/accounts/:id', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   // Sahiplik kısıtlı silme: yalnız kendi hesabını siler (IDOR koruması).
   const { count } = await prisma.socialAccount.deleteMany({
     where: { id: req.params.id, userId },

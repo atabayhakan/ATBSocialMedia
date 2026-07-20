@@ -12,10 +12,24 @@ export const waEvents = new EventEmitter();
 
 let currentSocket: BaileysSocket | null = null;
 let lastQr: string | null = null;
+let connected = false;
+let reconnectTimer: NodeJS.Timeout | null = null;
 
 export async function initWhatsApp() {
   if (process.env.WA_QR_ENABLED !== 'true') return;
   try {
+    // Önceki soketi ve dinleyicilerini temizle — aksi halde her reconnect'te socket
+    // ve dinleyiciler birikir, gelen mesaj birden çok kez işlenip mükerrer yanıt üretir.
+    if (currentSocket) {
+      try {
+        currentSocket.ev?.removeAllListeners?.();
+        currentSocket.end?.(undefined);
+      } catch {
+        /* eski socket temizlenemedi, yut */
+      }
+      currentSocket = null;
+    }
+
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = await import(
       '@whiskeysockets/baileys'
     );
@@ -37,6 +51,7 @@ export async function initWhatsApp() {
         logger.info('📱 WhatsApp QR kodu oluşturuldu');
       }
       if (connection === 'open') {
+        connected = true;
         lastQr = null;
         waEvents.emit('connected', true);
         logger.info('✅ WhatsApp bağlantısı kuruldu');
@@ -49,11 +64,18 @@ export async function initWhatsApp() {
         }
       }
       if (connection === 'close') {
+        connected = false;
         waEvents.emit('disconnected', true);
         const reason = (lastDisconnect?.error as any)?.output?.statusCode;
         if (reason !== DisconnectReason.loggedOut) {
-          setTimeout(() => initWhatsApp().catch((e) => logger.error({ e }, 'WA reconnect hatası')), 5000);
+          // Tek bir bekleyen reconnect timer'ı tut (çakışan reconnect'leri önle).
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            initWhatsApp().catch((e) => logger.error({ e }, 'WA reconnect hatası'));
+          }, 5000);
         } else {
+          currentSocket = null;
           logger.warn('WhatsApp oturumu kapatıldı (logged out)');
         }
       }
@@ -76,7 +98,9 @@ export function getCurrentQr(): string | null {
 }
 
 export function isWhatsAppConnected(): boolean {
-  return currentSocket != null;
+  // Soketin varlığı değil, gerçek 'open' durumu — logout/kopma sonrası yanlış
+  // "bağlı" bildirmesini önler.
+  return connected;
 }
 
 export async function sendWhatsAppMessage(remoteJid: string, text: string) {
@@ -84,9 +108,12 @@ export async function sendWhatsAppMessage(remoteJid: string, text: string) {
   await currentSocket.sendMessage(remoteJid, { text });
 }
 
-export async function sendWhatsAppBusinessApi(phoneNumberId: string, to: string, text: string) {
-  const token = process.env.WA_ACCESS_TOKEN;
-  if (!token) throw new Error('WA_ACCESS_TOKEN tanımsız');
+export async function sendWhatsAppBusinessApi(
+  phoneNumberId: string,
+  token: string,
+  to: string,
+  text: string
+) {
   await axios.post(
     `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
     {
@@ -95,7 +122,7 @@ export async function sendWhatsAppBusinessApi(phoneNumberId: string, to: string,
       type: 'text',
       text: { body: text },
     },
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 15_000 }
   );
 }
 
@@ -160,13 +187,17 @@ async function handleIncomingMessage(sock: BaileysSocket, msg: any) {
   }
 
   if (isCritical) {
-    await notifyCritical({
+    const delivered = await notifyCritical({
       title: 'Kritik WhatsApp mesajı',
       body: `${remoteJid}: ${body}\n\nAI yanıtı: ${reply}`,
     });
-    await prisma.whatsAppReply.update({
-      where: { id: replyRecord.id },
-      data: { notifiedAt: new Date() },
-    });
+    // Yalnız en az bir kanal gerçekten teslim ettiyse "bildirildi" damgası vur —
+    // aksi halde operatör hiç uyarılmadığı halde kayıt bildirilmiş görünür.
+    if (delivered) {
+      await prisma.whatsAppReply.update({
+        where: { id: replyRecord.id },
+        data: { notifiedAt: new Date() },
+      });
+    }
   }
 }

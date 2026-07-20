@@ -3,7 +3,10 @@ import { prisma } from '../lib/prisma';
 
 const router = Router();
 
-router.get('/stats', async (_req, res) => {
+router.get('/stats', async (req, res) => {
+  // Tüm sayımlar ve son gönderiler yalnız bu kullanıcıya ait olmalı — aksi halde
+  // dashboard başka kiracıların gönderi içeriğini sızdırır.
+  const userId = req.userId;
   const [
     postCount,
     publishedCount,
@@ -13,13 +16,14 @@ router.get('/stats', async (_req, res) => {
     accountCount,
     recentPosts,
   ] = await Promise.all([
-    prisma.post.count(),
-    prisma.post.count({ where: { status: 'PUBLISHED' } }),
-    prisma.post.count({ where: { status: 'PENDING_APPROVAL' } }),
-    prisma.newsSource.count({ where: { active: true } }),
-    prisma.persona.count(),
-    prisma.socialAccount.count({ where: { active: true } }),
+    prisma.post.count({ where: { userId } }),
+    prisma.post.count({ where: { userId, status: 'PUBLISHED' } }),
+    prisma.post.count({ where: { userId, status: 'PENDING_APPROVAL' } }),
+    prisma.newsSource.count({ where: { userId, active: true } }),
+    prisma.persona.count({ where: { userId } }),
+    prisma.socialAccount.count({ where: { userId, active: true } }),
     prisma.post.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 10,
       include: { targets: true, persona: true },
@@ -29,7 +33,7 @@ router.get('/stats', async (_req, res) => {
   const last7days = await prisma.post.groupBy({
     by: ['status'],
     _count: true,
-    where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+    where: { userId, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
   });
 
   res.json({
@@ -45,28 +49,37 @@ router.get('/stats', async (_req, res) => {
 });
 
 router.get('/notifications', async (req, res) => {
-  const userId = req.header('x-user-id');
+  const userId = req.userId;
+  // Kritik WhatsApp yanıtlarını yalnız bu kullanıcının config'ine kısıtla (mock store
+  // nested relation filtresi desteklemediği için configId üzerinden filtreliyoruz).
+  const waCfg = await prisma.whatsAppConfig.findFirst({ where: { userId } });
   const [pending, failed, critical, expiringAccounts] = await Promise.all([
     prisma.post.findMany({
-      where: { userId: userId || undefined, status: 'PENDING_APPROVAL' },
+      where: { userId, status: 'PENDING_APPROVAL' },
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
     prisma.postTarget.findMany({
-      where: { status: 'FAILED', post: { userId: userId || undefined } },
+      where: { status: 'FAILED', post: { userId } },
       include: { post: true },
       orderBy: { publishedAt: 'desc' },
       take: 5,
     }),
-    prisma.whatsAppReply.findMany({
-      where: { isCritical: true, createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) } },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    }),
+    waCfg
+      ? prisma.whatsAppReply.findMany({
+          where: {
+            configId: waCfg.id,
+            isCritical: true,
+            createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+      : Promise.resolve([]),
     // Süresi ayarlı, aktif hesaplar (eşik filtresi aşağıda JS'te uygulanır —
     // mock store Prisma'nın lte/top-level NOT operatörlerini desteklemiyor).
     prisma.socialAccount.findMany({
-      where: { userId: userId || undefined, active: true, expiresAt: { not: null } },
+      where: { userId, active: true, expiresAt: { not: null } },
       orderBy: { expiresAt: 'asc' },
     }),
   ]);

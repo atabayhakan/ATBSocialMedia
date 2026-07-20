@@ -63,28 +63,47 @@ export async function exchangeCodeForToken(code: string, userId: string, codeVer
   });
 }
 
-async function getValidToken(userId: string) {
+// Kullanıcı başına süren yenileme isteğini tut — aynı anda iki çağrı gelirse ikisi de
+// aynı (rotate eden) refresh token'ı kullanıp biri invalid_grant almasın (single-flight).
+const refreshInFlight = new Map<string, Promise<string>>();
+
+async function refreshToken(userId: string, encryptedRefresh: string | null): Promise<string> {
+  const { data } = await axios.post('https://api.canva.com/rest/v1/oauth/token', {
+    grant_type: 'refresh_token',
+    refresh_token: decryptSecret(encryptedRefresh),
+    client_id: process.env.CANVA_CLIENT_ID,
+    client_secret: process.env.CANVA_CLIENT_SECRET,
+  });
+  if (!data?.access_token) throw new Error('Canva token yenileme başarısız (access_token dönmedi)');
+  // Sağlayıcı yenilemede yeni refresh_token vermezse eskisini KORU (null ile ezersek
+  // bir sonraki yenileme kalıcı olarak kırılır). expires_in yoksa güvenli varsayılan
+  // kullan (NaN → Invalid Date → yenileme hiç tetiklenmez tuzağını önler).
+  const expiresInSec = typeof data.expires_in === 'number' ? data.expires_in : 3600;
+  await prisma.canvaConfig.update({
+    where: { userId },
+    data: {
+      accessToken: encryptSecret(data.access_token)!,
+      refreshToken: data.refresh_token ? encryptSecret(data.refresh_token)! : encryptedRefresh,
+      expiresAt: new Date(Date.now() + expiresInSec * 1000),
+    },
+  });
+  return data.access_token as string;
+}
+
+async function getValidToken(userId: string): Promise<string> {
   const cfg = await prisma.canvaConfig.findUnique({ where: { userId } });
   if (!cfg) throw new Error('Canva bağlı değil');
 
-  if (cfg.expiresAt.getTime() - Date.now() < 60_000) {
-    const { data } = await axios.post('https://api.canva.com/rest/v1/oauth/token', {
-      grant_type: 'refresh_token',
-      refresh_token: decryptSecret(cfg.refreshToken),
-      client_id: process.env.CANVA_CLIENT_ID,
-      client_secret: process.env.CANVA_CLIENT_SECRET,
-    });
-    await prisma.canvaConfig.update({
-      where: { userId },
-      data: {
-        accessToken: encryptSecret(data.access_token)!,
-        refreshToken: encryptSecret(data.refresh_token)!,
-        expiresAt: new Date(Date.now() + data.expires_in * 1000),
-      },
-    });
-    return data.access_token as string;
+  if (cfg.expiresAt.getTime() - Date.now() >= 60_000) {
+    return decryptSecret(cfg.accessToken)!;
   }
-  return decryptSecret(cfg.accessToken)!;
+
+  const existing = refreshInFlight.get(userId);
+  if (existing) return existing;
+
+  const p = refreshToken(userId, cfg.refreshToken).finally(() => refreshInFlight.delete(userId));
+  refreshInFlight.set(userId, p);
+  return p;
 }
 
 export async function listTemplates(userId: string) {

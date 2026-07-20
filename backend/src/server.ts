@@ -10,7 +10,9 @@ import { env } from './lib/env';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { redis } from './lib/redis';
+import { requireAuth } from './middleware/auth';
 
+import authRoutes from './routes/auth';
 import dashboardRoutes from './routes/dashboard';
 import sourcesRoutes from './routes/sources';
 import personasRoutes from './routes/personas';
@@ -29,6 +31,11 @@ import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
 
 const app = express();
+
+// Tek reverse proxy (Caddy) arkasındayız: X-Forwarded-For'a güven ki rate-limit
+// gerçek istemci IP'sine göre çalışsın (aksi halde herkes proxy'nin 127.0.0.1'i
+// olarak görünüp global paylaşımlı limite düşer).
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(compression());
@@ -61,19 +68,31 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/sources', sourcesRoutes);
-app.use('/api/personas', personasRoutes);
-app.use('/api/posts', postsRoutes);
-app.use('/api/whatsapp', whatsappRoutes);
-app.use('/api/canva', canvaRoutes);
-app.use('/api/social', socialRoutes);
-app.use('/api/news', newsRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/assistant', assistantRoutes);
-app.use('/api/search', searchRoutes);
+// /api/auth: oturum açma/kurulum, kimlik doğrulamasız erişilebilir.
+// /api/mcp: kendi ayrı Bearer token'ıyla doğrular (bkz. routes/mcp.ts) — panel oturumundan bağımsız.
+app.use('/api/auth', authRoutes);
 app.use('/api/mcp', mcpRoutes);
-app.use('/api/image-templates', imageTemplatesRoutes);
+
+// Geri kalan tüm /api/* rotaları panel oturumu (Authorization: Bearer <jwt>) gerektirir.
+app.use('/api/dashboard', requireAuth, dashboardRoutes);
+app.use('/api/sources', requireAuth, sourcesRoutes);
+app.use('/api/personas', requireAuth, personasRoutes);
+app.use('/api/posts', requireAuth, postsRoutes);
+app.use('/api/whatsapp', requireAuth, whatsappRoutes);
+// Canva OAuth callback'i (Canva'nın tarayıcıyı yönlendirdiği istek) panel oturum
+// token'ı taşımaz; sahiplik zaten state→Redis→userId ile sağlanır. Bu yüzden yalnız
+// /callback requireAuth'tan muaf, diğer tüm /api/canva rotaları korumalı.
+app.use(
+  '/api/canva',
+  (req, res, next) => (req.path === '/callback' ? next() : requireAuth(req, res, next)),
+  canvaRoutes
+);
+app.use('/api/social', requireAuth, socialRoutes);
+app.use('/api/news', requireAuth, newsRoutes);
+app.use('/api/settings', requireAuth, settingsRoutes);
+app.use('/api/assistant', requireAuth, assistantRoutes);
+app.use('/api/search', requireAuth, searchRoutes);
+app.use('/api/image-templates', requireAuth, imageTemplatesRoutes);
 
 // Üretilen/yüklenen görseller — Instagram/Facebook/TikTok gibi dış servislerin
 // paylaşım sırasında görseli çekebilmesi için kimlik doğrulamasız (genel-erişimli).

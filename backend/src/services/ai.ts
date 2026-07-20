@@ -40,29 +40,34 @@ export async function chatWithProvider(
   opts: { temperature: number; json?: boolean }
 ): Promise<string | null> {
   if (!provider.apiKey) return null;
-  const fallbacks = provider.fallbackModels || [];
-  try {
-    const { data } = await axios.post(
-      `${provider.baseUrl}/chat/completions`,
-      {
-        model: provider.model,
-        // OpenRouter: biri rate-limit'liyse sıradaki modele otomatik geçer (en fazla 3 model)
-        ...(fallbacks.length ? { models: [provider.model, ...fallbacks].slice(0, 3) } : {}),
-        messages,
-        temperature: opts.temperature,
-        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
-      },
-      {
-        headers: { Authorization: `Bearer ${provider.apiKey}` },
-        // Ücretsiz modeller yoğunlukta yavaşlayabiliyor; 60sn sınırda kalıyor
-        timeout: 120_000,
-      }
-    );
-    return data?.choices?.[0]?.message?.content ?? null;
-  } catch (e: any) {
-    logger.error({ e: e?.response?.data || e.message }, 'AI chatWithProvider hatası');
-    return null;
+  // Birincil + yedek modelleri SIRAYLA dene. (Eski hâl yalnız OpenRouter'a özgü
+  // `models[]` alanıyla failover yapıyordu; ayrı isteklerle her sağlayıcıda çalışır.)
+  const models = [provider.model, ...(provider.fallbackModels || [])].filter(Boolean);
+  for (const model of models) {
+    try {
+      const { data } = await axios.post(
+        `${provider.baseUrl}/chat/completions`,
+        {
+          model,
+          messages,
+          temperature: opts.temperature,
+          ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+        },
+        {
+          headers: { Authorization: `Bearer ${provider.apiKey}` },
+          // Ücretsiz modeller yoğunlukta yavaşlayabiliyor; 60sn sınırda kalıyor
+          timeout: 120_000,
+        }
+      );
+      const content = data?.choices?.[0]?.message?.content ?? null;
+      if (content) return content;
+      // Boş içerik → sıradaki yedek modeli dene.
+    } catch (e: any) {
+      logger.error({ e: e?.response?.data || e.message, model }, 'AI chatWithProvider hatası');
+      // Bu model başarısız → sıradaki yedek modeli dene.
+    }
   }
+  return null;
 }
 
 async function chatCompletion(
@@ -134,6 +139,13 @@ URL: ${news.url}`;
       hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
       summary: parsed.summary || parsed.title,
     };
+  }
+  // AI AÇIK olduğu halde geçerli içerik üretemedi (sağlayıcı hatası/geçersiz JSON):
+  // sessizce şablon "mock" içeriğe düşüp bunu otonom modda gerçek gönderi gibi
+  // yayınlamak yerine hata fırlat. mock içerik yalnızca AI tamamen kapalıyken
+  // (geliştirme/mock mod) döner.
+  if (aiEnabled) {
+    throw new Error('AI içerik üretemedi (sağlayıcı hatası veya geçersiz yanıt) — gönderi oluşturulmadı');
   }
   return mockGeneratePost(news);
 }
