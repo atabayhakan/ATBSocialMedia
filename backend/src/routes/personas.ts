@@ -14,17 +14,16 @@ const personaSchema = z.object({
 });
 
 router.get('/', async (req, res) => {
-  const userId = req.header('x-user-id');
+  const userId = req.userId!;
   const personas = await prisma.persona.findMany({
-    where: { userId: userId || undefined },
+    where: { userId },
     orderBy: { createdAt: 'desc' },
   });
   res.json(personas);
 });
 
 router.post('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const parsed = personaSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -38,11 +37,14 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
+  const userId = req.userId!;
+  const owned = await prisma.persona.findFirst({ where: { id: req.params.id, userId } });
+  if (!owned) return res.status(404).json({ error: 'Persona bulunamadı' });
+
   const parsed = personaSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   if (parsed.data.isDefault) {
-    const p = await prisma.persona.findUnique({ where: { id: req.params.id } });
-    if (p) await prisma.persona.updateMany({ where: { userId: p.userId }, data: { isDefault: false } });
+    await prisma.persona.updateMany({ where: { userId }, data: { isDefault: false } });
   }
   const persona = await prisma.persona.update({
     where: { id: req.params.id },
@@ -52,7 +54,8 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await prisma.persona.delete({ where: { id: req.params.id } });
+  const { count } = await prisma.persona.deleteMany({ where: { id: req.params.id, userId: req.userId } });
+  if (!count) return res.status(404).json({ error: 'Persona bulunamadı' });
   res.status(204).end();
 });
 

@@ -16,8 +16,7 @@ const sourceSchema = z.object({
 });
 
 router.get('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const sources = await prisma.newsSource.findMany({
     where: { userId },
     include: { niche: true, _count: { select: { items: true } } },
@@ -27,8 +26,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const parsed = sourceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const source = await prisma.newsSource.create({
@@ -37,8 +35,11 @@ router.post('/', async (req, res) => {
   res.status(201).json(source);
 });
 
+// Sahiplik kısıtlı: yalnız kendi kaynağını yeniler/siler (IDOR koruması).
 router.post('/:id/refresh', async (req, res) => {
   try {
+    const owned = await prisma.newsSource.findFirst({ where: { id: req.params.id, userId: req.userId } });
+    if (!owned) return res.status(404).json({ error: 'Kaynak bulunamadı' });
     const result = await fetchSingleSource(req.params.id);
     res.json(result);
   } catch (e: any) {
@@ -47,7 +48,8 @@ router.post('/:id/refresh', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await prisma.newsSource.delete({ where: { id: req.params.id } });
+  const { count } = await prisma.newsSource.deleteMany({ where: { id: req.params.id, userId: req.userId } });
+  if (!count) return res.status(404).json({ error: 'Kaynak bulunamadı' });
   res.status(204).end();
 });
 

@@ -6,8 +6,7 @@ import { chat, buildDiagnosticReport, getConfig, updateConfig } from '../service
 const router = Router();
 
 router.post('/chat', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const message = (req.body?.message || '').toString().trim();
   if (!message) return res.status(400).json({ error: 'message gerekli' });
   if (message.length > 4000) return res.status(400).json({ error: 'Mesaj çok uzun (max 4000)' });
@@ -21,8 +20,7 @@ router.post('/chat', async (req, res) => {
 });
 
 router.get('/history', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const messages = await prisma.assistantMessage.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -32,15 +30,13 @@ router.get('/history', async (req, res) => {
 });
 
 router.delete('/history', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   await prisma.assistantMessage.deleteMany({ where: { userId } });
   res.status(204).end();
 });
 
 router.get('/config', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   res.json(await getConfig(userId));
 });
 
@@ -52,16 +48,14 @@ const configSchema = z.object({
 });
 
 router.put('/config', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const parsed = configSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   res.json(await updateConfig(userId, parsed.data));
 });
 
 router.get('/report', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   try {
     const report = await buildDiagnosticReport(userId);
     res.type('text/markdown').send(report);

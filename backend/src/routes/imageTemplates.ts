@@ -49,16 +49,14 @@ function sanitize(t: any) {
 }
 
 router.get('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const templates = await prisma.imageTemplate.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
   res.json(templates.map(sanitize));
 });
 
 router.post('/', upload.single('background'), async (req, res) => {
   try {
-    const userId = req.header('x-user-id');
-    if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+    const userId = req.userId!;
     if (!req.file) return res.status(400).json({ error: 'Arka plan görseli gerekli' });
 
     const name = (req.body?.name || 'Şablon').toString().slice(0, 80);
@@ -91,8 +89,7 @@ router.post('/', upload.single('background'), async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
 
   const data: Record<string, any> = {};
   if (req.body?.name !== undefined) data.name = String(req.body.name).slice(0, 80);
@@ -123,8 +120,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const template = await prisma.imageTemplate.findFirst({ where: { id: req.params.id, userId } });
   if (!template) return res.status(404).json({ error: 'Şablon bulunamadı' });
   await prisma.imageTemplate.delete({ where: { id: template.id } });
@@ -134,8 +130,7 @@ router.delete('/:id', async (req, res) => {
 
 router.post('/:id/preview', async (req, res) => {
   try {
-    const userId = req.header('x-user-id');
-    if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+    const userId = req.userId!;
     const template = await prisma.imageTemplate.findFirst({ where: { id: req.params.id, userId } });
     if (!template) return res.status(404).json({ error: 'Şablon bulunamadı' });
 

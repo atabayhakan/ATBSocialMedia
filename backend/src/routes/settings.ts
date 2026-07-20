@@ -5,8 +5,7 @@ import { prisma } from '../lib/prisma';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
 
@@ -26,8 +25,7 @@ const settingsSchema = z.object({
 });
 
 router.put('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const parsed = settingsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

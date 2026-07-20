@@ -10,8 +10,7 @@ const router = Router();
 const OAUTH_STATE_TTL_SEC = 600; // OAuth akışını tamamlamak için 10 dakika yeterli
 
 router.get('/connect', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   // Eksik env ile Canva'nın kendi (kafa karıştırıcı) 400 hata sayfasına
   // yönlendirmek yerine burada anlaşılır bir hata döndür.
   if (!process.env.CANVA_CLIENT_ID || !process.env.CANVA_REDIRECT_URI) {
@@ -21,8 +20,8 @@ router.get('/connect', async (req, res) => {
   }
   const state = crypto.randomBytes(16).toString('hex');
   const { codeVerifier, codeChallenge } = generatePkce();
-  // Callback isteği (Canva'nın tarayıcıyı yönlendirdiği istek) bizim x-user-id
-  // header'ımızı taşımaz — bu yüzden state'i userId + code_verifier'ı taşıyan
+  // Callback isteği (Canva'nın tarayıcıyı yönlendirdiği istek) bizim oturum
+  // token'ımızı taşımaz — bu yüzden state'i userId + code_verifier'ı taşıyan
   // tek kullanımlık bir anahtar olarak Redis'te saklıyoruz.
   await redis.set(`canva:oauth:${state}`, JSON.stringify({ userId, codeVerifier }), 'EX', OAUTH_STATE_TTL_SEC);
   res.json({ url: getAuthorizeUrl(state, codeChallenge), state });
@@ -44,15 +43,13 @@ router.get('/callback', async (req, res) => {
 });
 
 router.get('/status', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const cfg = await prisma.canvaConfig.findUnique({ where: { userId } });
   res.json({ connected: !!cfg, expiresAt: cfg?.expiresAt, defaultTemplateId: cfg?.defaultTemplateId || null });
 });
 
 router.put('/default-template', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const templateId = (req.body?.templateId ?? null) as string | null;
   const cfg = await prisma.canvaConfig.findUnique({ where: { userId } });
   if (!cfg) return res.status(400).json({ error: 'Önce Canva hesabını bağla' });
@@ -65,8 +62,7 @@ router.put('/default-template', async (req, res) => {
 
 router.get('/templates', async (req, res) => {
   try {
-    const userId = req.header('x-user-id');
-    if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+    const userId = req.userId!;
     const templates = await listTemplates(userId);
     res.json(templates);
   } catch (e: any) {
@@ -76,8 +72,7 @@ router.get('/templates', async (req, res) => {
 
 router.post('/fill', async (req, res) => {
   try {
-    const userId = req.header('x-user-id');
-    if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+    const userId = req.userId!;
     const result = await fillCanvaTemplate(userId, req.body, req.body.templateId);
     res.json(result);
   } catch (e: any) {

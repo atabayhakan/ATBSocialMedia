@@ -4,8 +4,7 @@ import { searchAll } from '../services/search';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const userId = req.header('x-user-id');
-  if (!userId) return res.status(400).json({ error: 'userId gerekli' });
+  const userId = req.userId!;
   const q = (req.query.q || '').toString();
   if (q.trim().length < 2) return res.json({ results: [] });
 

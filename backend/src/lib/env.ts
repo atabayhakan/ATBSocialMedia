@@ -29,6 +29,9 @@ const schema = z.object({
   // MCP endpoint'i için panel şifresinden bağımsız erişim anahtarı.
   // Boşsa token kontrolü yapılmaz (yerel/mock geliştirme).
   MCP_TOKEN: z.string().default(''),
+  // Kullanıcı oturum JWT'lerini imzalamak için. Boşsa geliştirmede rastgele
+  // (süreç ömrü boyunca sabit) bir anahtar üretilir — üretimde zorunlu.
+  JWT_SECRET: z.string().default(''),
   WA_QR_ENABLED: z.string().optional(),
   WA_BUSINESS_ENABLED: z.string().optional(),
 });
@@ -55,6 +58,9 @@ if (parsed.data.NODE_ENV === 'production') {
   }
   if (!parsed.data.MCP_TOKEN) {
     problems.push('MCP_TOKEN tanımsız — MCP endpoint kimlik doğrulamasız açık kalır');
+  }
+  if (!parsed.data.JWT_SECRET) {
+    problems.push('JWT_SECRET tanımsız — kullanıcı oturumları imzalanamaz');
   }
   if (problems.length) {
     console.error(
