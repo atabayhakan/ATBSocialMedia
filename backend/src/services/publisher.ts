@@ -4,7 +4,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { mediaBaseUrl } from '../lib/env';
+import { env, mediaBaseUrl } from '../lib/env';
 import { decryptSecret } from '../lib/crypto';
 import { generatePostFromNews } from './ai';
 import { pickNextNewsItemForUser } from './newsFetcher';
@@ -359,12 +359,44 @@ async function publishInstagram(target: any): Promise<string> {
   if (!target.post.mediaUrls[0]) throw new Error('Instagram için görsel zorunlu');
   const igUserId = target.account.externalId;
   const caption = `${target.post.title}\n\n${target.post.body}\n\n${target.post.hashtags.join(' ')}`;
+  
+  // Localhost/göreli URL'leri genel erişimli domain'e (https://www.sponsorify.tech) dönüştür
+  let imageUrl = target.post.mediaUrls[0];
+  if (imageUrl.startsWith('http://localhost') || imageUrl.startsWith('http://127.0.0.1') || imageUrl.startsWith('/')) {
+    const cleanPath = imageUrl.replace(/^https?:\/\/[^\/]+/, '');
+    const baseUrl = env.MEDIA_BASE_URL || env.APP_URL || 'https://www.sponsorify.tech';
+    imageUrl = `${baseUrl.replace(/\/$/, '')}${cleanPath}`;
+  }
+
+  // 1. Instagram Medya Kapsayıcısı (Container) Oluştur
   const creation = await axios.post(
     `https://graph.facebook.com/v20.0/${igUserId}/media`,
-    { image_url: target.post.mediaUrls[0], caption, access_token: target.account.accessToken },
+    { image_url: imageUrl, caption, access_token: target.account.accessToken },
     { timeout: PUBLISH_TIMEOUT }
   );
   const containerId = creation.data.id;
+
+  // 2. Instagram Görseli İşleyip Hazır Edene Kadar Bekle (Status Polling)
+  let status = 'IN_PROGRESS';
+  let retries = 0;
+  while (status !== 'FINISHED' && retries < 10) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const statusRes = await axios.get(
+        `https://graph.facebook.com/v20.0/${containerId}`,
+        { params: { fields: 'status_code,status', access_token: target.account.accessToken }, timeout: PUBLISH_TIMEOUT }
+      );
+      status = statusRes.data.status_code;
+      if (status === 'ERROR') {
+        throw new Error(`Instagram görsel işleme hatası: ${statusRes.data.status || 'Bilinmeyen Meta hatası'}`);
+      }
+    } catch (e: any) {
+      if (retries >= 3) throw e;
+    }
+    retries++;
+  }
+
+  // 3. Medyayı Yayınla
   const publish = await axios.post(
     `https://graph.facebook.com/v20.0/${igUserId}/media_publish`,
     { creation_id: containerId, access_token: target.account.accessToken },

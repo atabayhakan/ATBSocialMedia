@@ -102,7 +102,18 @@ export default function SocialPage() {
 
   async function save() {
     try {
-      const body = { ...form, expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null };
+      let expiresAt: string | null = null;
+      if (form.expiresAt && !isNaN(new Date(form.expiresAt).getTime())) {
+        expiresAt = new Date(form.expiresAt).toISOString();
+      }
+      const body = {
+        ...form,
+        accountName: form.accountName.trim(),
+        externalId: form.externalId.trim(),
+        accessToken: form.accessToken.trim() || undefined,
+        refreshToken: form.refreshToken.trim() || undefined,
+        expiresAt,
+      };
       if (editingId) {
         await api.put(`/api/social/accounts/${editingId}`, body);
         toast.success('Hesap güncellendi');
@@ -116,6 +127,15 @@ export default function SocialPage() {
       load();
     } catch (e: any) {
       toast.error(e.message);
+    }
+  }
+
+  async function testAccount(id: string) {
+    try {
+      const res = await api.post<any>(`/api/social/accounts/${id}/test`);
+      toast.success(`Bağlantı Başarılı! (${res.name})`);
+    } catch (e: any) {
+      toast.error(e.message || 'Bağlantı testi başarısız');
     }
   }
 
@@ -216,6 +236,9 @@ export default function SocialPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => testAccount(a.id)}>
+                  Test Et
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => openEdit(a)}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle
                 </Button>
