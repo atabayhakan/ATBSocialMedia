@@ -159,6 +159,7 @@ class MockStore {
   brandStrategy = this.proxy('BrandStrategy');
   contentPillar = this.proxy('ContentPillar');
   cadenceRule = this.proxy('CadenceRule');
+  calendarSlot = this.proxy('CalendarSlot');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
@@ -395,6 +396,8 @@ class MockStore {
     'BrandStrategy.pillars': { model: 'ContentPillar', fk: 'strategyId', list: true },
     'ContentPillar.strategy': { model: 'BrandStrategy', fk: 'strategyId', list: false },
     'CadenceRule.user': { model: 'User', fk: 'userId', list: false },
+    'User.calendarSlots': { model: 'CalendarSlot', fk: 'userId', list: true },
+    'CalendarSlot.user': { model: 'User', fk: 'userId', list: false },
   };
 
   private applyInclude(row: any, include: any, model: string): any {

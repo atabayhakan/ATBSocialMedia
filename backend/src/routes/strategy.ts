@@ -38,7 +38,7 @@ const pillarSchema = z.object({
   description: z.string().optional(),
   targetPercentage: z.number().int().min(1).max(100),
   topicBank: z.array(z.string()).default([]),
-  active: z.boolean().optional(),
+  active: z.boolean().default(true),
 });
 
 router.post('/pillars', async (req, res) => {
@@ -77,7 +77,7 @@ const cadenceSchema = z.object({
   weekday: z.number().int().min(0).max(6),
   timeOfDay: z.string().regex(/^\d{2}:\d{2}$/),
   pillarId: z.string().optional(),
-  active: z.boolean().optional(),
+  active: z.boolean().default(true),
 });
 
 router.get('/cadence', async (req, res) => {

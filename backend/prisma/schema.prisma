@@ -30,6 +30,7 @@ model User {
   imageTemplates  ImageTemplate[]
   brandStrategy   BrandStrategy?
   cadenceRules    CadenceRule[]
+  calendarSlots   CalendarSlot[]
 }
 
 enum UserRole {
@@ -126,11 +127,13 @@ model Post {
   sourceItemId  String?
   status        PostStatus  @default(DRAFT)
   mode          PublishMode @default(APPROVAL)
+  origin        PostOrigin  @default(NEWS)
   title         String
   body          String
   hashtags      String[]
   mediaUrls     String[]
   canvaDesignId String?
+  meta          Json?
   scheduledAt   DateTime?
   publishedAt   DateTime?
   error         String?
@@ -160,6 +163,14 @@ enum PostStatus {
 enum PublishMode {
   FULLY_AUTONOMOUS
   APPROVAL
+}
+
+enum PostOrigin {
+  NEWS
+  CALENDAR
+  REPURPOSE
+  TREND
+  MANUAL
 }
 
 model PostTarget {
@@ -379,6 +390,27 @@ model CadenceRule {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, active])
+}
+
+// CadenceRule'ları (BrandStrategy) somut, tarihli slotlara çevirir. "Doldurma" (bir
+// slotu gerçek bir gönderiye bağlama) bilinçli olarak yok — mevcut yayın modeli tek
+// Post'u TÜM bağlı hesaplara aynı metinle gönderiyor (PostTarget), CalendarSlot ise
+// platform-bazlı; platforma özel içerik farklılaştırması sonraki bir fazın konusu.
+model CalendarSlot {
+  id              String   @id @default(cuid())
+  userId          String
+  platform        Platform
+  scheduledFor    DateTime
+  pillarId        String?
+  isFlex          Boolean  @default(false)
+  status          String   @default("OPEN") // OPEN / FILLED
+  generatedPostId String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, scheduledFor])
+  @@index([userId, scheduledFor])
 }
 
 model AuditLog {

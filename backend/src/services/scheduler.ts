@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { logger } from '../lib/logger';
 import { fetchAllSources } from './newsFetcher';
 import { processPendingPosts, sweepStuckTargets } from './publisher';
+import { generateSlotsForAllUsers } from './planner';
 import { prisma } from '../lib/prisma';
 
 export function startScheduler() {
@@ -43,6 +44,16 @@ export function startScheduler() {
       logger.info({ count }, 'Eski kullanılmış haberler temizlendi');
     } catch (e) {
       logger.error({ e }, 'Temizlik hatası');
+    }
+  });
+
+  // Pazartesi 03:00: cadence kurallarından önümüzdeki 2 haftalık takvim slotlarını üret.
+  cron.schedule('0 3 * * 1', async () => {
+    try {
+      const created = await generateSlotsForAllUsers();
+      logger.info({ created }, '⏰ Zamanlayıcı: cadence slotları üretildi');
+    } catch (e) {
+      logger.error({ e }, 'Zamanlayıcı slot üretim hatası');
     }
   });
 
