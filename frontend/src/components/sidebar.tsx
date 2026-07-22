@@ -14,12 +14,14 @@ import {
   Settings,
   Sparkles,
   Compass,
+  TrendingUp,
 } from 'lucide-react';
 
 const items = [
   { href: '/dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
   { href: '/dashboard/strategy', label: 'Marka Stratejisi', icon: Compass },
   { href: '/dashboard/calendar', label: 'İçerik Takvimi', icon: Calendar },
+  { href: '/dashboard/trends', label: 'Trendler', icon: TrendingUp },
   { href: '/dashboard/sources', label: 'Haber Kaynakları', icon: Newspaper },
   { href: '/dashboard/personas', label: 'AI Kişilikler', icon: Users },
   { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageCircle },

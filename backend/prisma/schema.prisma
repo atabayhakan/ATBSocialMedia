@@ -32,6 +32,8 @@ model User {
   cadenceRules     CadenceRule[]
   calendarSlots    CalendarSlot[]
   repurposeSources RepurposeSource[]
+  trendSignals     TrendSignal[]
+  reports          Report[]
 }
 
 enum UserRole {
@@ -441,6 +443,55 @@ model RepurposeInsight {
   source RepurposeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId])
+}
+
+enum TrendVerdict {
+  ACT_NOW
+  PLAN
+  WATCH
+  PASS
+}
+
+// Mevcut NewsItem havuzunu (newsFetcher.ts) alaka/özgünlük/eyleme-geçirilebilirlik
+// boyutlarında skorlar. sourceNewsItemId ile dedup edilir (aynı haber iki kez skorlanmaz).
+model TrendSignal {
+  id                 String       @id @default(cuid())
+  userId             String
+  title              String
+  description        String?
+  sourceUrl          String?
+  sourceNewsItemId   String?
+  relevanceScore     Int
+  authenticityScore  Int
+  actionabilityScore Int
+  totalScore         Int
+  verdict            TrendVerdict
+  respondByAt        DateTime?
+  generatedPostId    String?
+  createdAt          DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum ReportType {
+  FOUNDER_BRIEFING_DAILY
+  FOUNDER_BRIEFING_WEEKLY
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  userId      String
+  type        ReportType
+  periodStart DateTime
+  periodEnd   DateTime
+  content     String
+  createdAt   DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
 }
 
 model AuditLog {

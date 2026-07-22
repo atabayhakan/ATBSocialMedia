@@ -162,6 +162,8 @@ class MockStore {
   calendarSlot = this.proxy('CalendarSlot');
   repurposeSource = this.proxy('RepurposeSource');
   repurposeInsight = this.proxy('RepurposeInsight');
+  trendSignal = this.proxy('TrendSignal');
+  report = this.proxy('Report');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
@@ -404,6 +406,10 @@ class MockStore {
     'RepurposeSource.user': { model: 'User', fk: 'userId', list: false },
     'RepurposeSource.insights': { model: 'RepurposeInsight', fk: 'sourceId', list: true },
     'RepurposeInsight.source': { model: 'RepurposeSource', fk: 'sourceId', list: false },
+    'User.trendSignals': { model: 'TrendSignal', fk: 'userId', list: true },
+    'TrendSignal.user': { model: 'User', fk: 'userId', list: false },
+    'User.reports': { model: 'Report', fk: 'userId', list: true },
+    'Report.user': { model: 'User', fk: 'userId', list: false },
   };
 
   private applyInclude(row: any, include: any, model: string): any {

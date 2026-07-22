@@ -3,6 +3,7 @@ import { logger } from '../lib/logger';
 import { fetchAllSources } from './newsFetcher';
 import { processPendingPosts, sweepStuckTargets } from './publisher';
 import { generateSlotsForAllUsers } from './planner';
+import { scanTrendsForAllUsers } from './trends';
 import { prisma } from '../lib/prisma';
 
 export function startScheduler() {
@@ -54,6 +55,16 @@ export function startScheduler() {
       logger.info({ created }, '⏰ Zamanlayıcı: cadence slotları üretildi');
     } catch (e) {
       logger.error({ e }, 'Zamanlayıcı slot üretim hatası');
+    }
+  });
+
+  // Her gün 07:00: haber havuzundan yeni trend sinyalleri skorla.
+  cron.schedule('0 7 * * *', async () => {
+    try {
+      const created = await scanTrendsForAllUsers();
+      logger.info({ created }, '⏰ Zamanlayıcı: trend sinyalleri tarandı');
+    } catch (e) {
+      logger.error({ e }, 'Zamanlayıcı trend tarama hatası');
     }
   });
 
