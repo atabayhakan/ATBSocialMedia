@@ -92,6 +92,24 @@ router.post('/accounts/:id/test', async (req, res) => {
     const token = decryptSecret(account.accessToken);
     if (!token) return res.status(400).json({ error: 'Token bulunamadı veya çözülemedi' });
 
+    // Instagram Login akışı (token IG... önekli, Facebook Page gerektirmez):
+    // graph.instagram.com/me hem doğrulama yapar hem doğru user_id'yi söyler —
+    // externalId yanlış girildiyse kullanıcıya düzeltme şansı verir.
+    if (account.platform === 'INSTAGRAM' && token.startsWith('IG')) {
+      const axios = (await import('axios')).default;
+      const { data } = await axios.get('https://graph.instagram.com/v20.0/me', {
+        params: { access_token: token, fields: 'user_id,username' },
+        timeout: 10000,
+      });
+      const realId = String(data.user_id || '');
+      if (realId && realId !== account.externalId) {
+        return res.status(400).json({
+          error: `Token geçerli ama External ID uyuşmuyor: bu token'ın Instagram User ID'si ${realId}. External ID alanını bununla güncelle.`,
+        });
+      }
+      return res.json({ ok: true, name: data.username || account.accountName });
+    }
+
     if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
       const axios = (await import('axios')).default;
       const { data } = await axios.get(`https://graph.facebook.com/v20.0/${account.externalId}`, {

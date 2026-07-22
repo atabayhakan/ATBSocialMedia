@@ -389,6 +389,14 @@ async function publishInstagram(target: any): Promise<string> {
   if (!target.post.mediaUrls[0]) throw new Error('Instagram için görsel zorunlu');
   const igUserId = target.account.externalId;
   const caption = `${target.post.title}\n\n${target.post.body}\n\n${target.post.hashtags.join(' ')}`;
+  // Meta'nın iki ayrı Instagram API'si var ve token'ları birbirinin host'unda ÇALIŞMAZ:
+  // - "Instagram API with Instagram Login" (Facebook Page gerektirmez): token IG... ile
+  //   başlar, istekler graph.instagram.com'a gider.
+  // - Klasik Page-bağlı Business akışı: Page token EAA... ile başlar, graph.facebook.com.
+  // Token önekinden hangi akış olduğunu ayırt ediyoruz.
+  const graphBase = target.account.accessToken.startsWith('IG')
+    ? 'https://graph.instagram.com'
+    : 'https://graph.facebook.com';
   
   // Localhost/göreli URL'leri genel erişimli domain'e (https://www.sponsorify.tech) dönüştür
   let imageUrl = target.post.mediaUrls[0];
@@ -400,7 +408,7 @@ async function publishInstagram(target: any): Promise<string> {
 
   // 1. Instagram Medya Kapsayıcısı (Container) Oluştur
   const creation = await axios.post(
-    `https://graph.facebook.com/v20.0/${igUserId}/media`,
+    `${graphBase}/v20.0/${igUserId}/media`,
     { image_url: imageUrl, caption, access_token: target.account.accessToken },
     { timeout: PUBLISH_TIMEOUT }
   );
@@ -413,7 +421,7 @@ async function publishInstagram(target: any): Promise<string> {
     await new Promise((r) => setTimeout(r, 2000));
     try {
       const statusRes = await axios.get(
-        `https://graph.facebook.com/v20.0/${containerId}`,
+        `${graphBase}/v20.0/${containerId}`,
         { params: { fields: 'status_code,status', access_token: target.account.accessToken }, timeout: PUBLISH_TIMEOUT }
       );
       status = statusRes.data.status_code;
@@ -428,7 +436,7 @@ async function publishInstagram(target: any): Promise<string> {
 
   // 3. Medyayı Yayınla
   const publish = await axios.post(
-    `https://graph.facebook.com/v20.0/${igUserId}/media_publish`,
+    `${graphBase}/v20.0/${igUserId}/media_publish`,
     { creation_id: containerId, access_token: target.account.accessToken },
     { timeout: PUBLISH_TIMEOUT }
   );
