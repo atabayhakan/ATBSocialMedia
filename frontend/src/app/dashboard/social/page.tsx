@@ -1,6 +1,21 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Pencil, Twitter, Linkedin, Instagram, Facebook, Music2, Send, Bird } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  Twitter,
+  Linkedin,
+  Instagram,
+  Facebook,
+  Music2,
+  Send,
+  Bird,
+  Eye,
+  EyeOff,
+  Info,
+  ExternalLink,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,14 +46,59 @@ const platformColors: Record<string, string> = {
 };
 
 // Platform başına alanların ne anlama geldiği (kimlik bilgileri farklı)
-const platformHints: Record<string, { externalId: string; accessToken: string; help: string }> = {
-  TWITTER: { externalId: 'Kullanıcı ID', accessToken: 'Access Token (OAuth2)', help: 'developer.x.com üzerinden uygulama oluşturup token al.' },
-  LINKEDIN: { externalId: 'Üye/Sayfa ID', accessToken: 'Access Token', help: 'LinkedIn Developer portalından w_member_social izniyle token al.' },
-  INSTAGRAM: { externalId: 'IG Business Account ID', accessToken: 'Access Token', help: 'Meta Graph API — Instagram Business hesabı gerekir. Görsel zorunludur.' },
-  FACEBOOK: { externalId: 'Page ID', accessToken: 'Page Access Token', help: 'Meta Graph API üzerinden sayfa token’ı al.' },
-  TIKTOK: { externalId: 'Open ID', accessToken: 'Access Token', help: 'TikTok Developer portal — video içerik zorunludur.' },
-  TELEGRAM: { externalId: 'Kanal (@kanaladi veya chat_id)', accessToken: 'Bot Token', help: 'Telegram’da @BotFather ile bot oluştur, botu kanalına yönetici ekle. En kolay kanal budur.' },
-  BLUESKY: { externalId: 'Handle (örn: atb.bsky.social)', accessToken: 'App Password', help: 'Bluesky → Settings → App Passwords’tan üret (normal şifreni girme). Onay gerekmez.' },
+const platformHints: Record<
+  string,
+  { externalId: string; accessToken: string; help: string; docsUrl: string; docsLabel: string }
+> = {
+  TWITTER: {
+    externalId: 'Kullanıcı ID',
+    accessToken: 'Access Token (OAuth2)',
+    help: 'developer.x.com üzerinden uygulama oluşturup token al.',
+    docsUrl: 'https://developer.x.com/en/portal/dashboard',
+    docsLabel: 'X Developer Portal',
+  },
+  LINKEDIN: {
+    externalId: 'Üye/Sayfa ID',
+    accessToken: 'Access Token',
+    help: 'LinkedIn Developer portalından w_member_social izniyle token al.',
+    docsUrl: 'https://www.linkedin.com/developers/apps',
+    docsLabel: 'LinkedIn Developers',
+  },
+  INSTAGRAM: {
+    externalId: 'IG Business Account ID',
+    accessToken: 'Access Token',
+    help: 'Meta Graph API — Instagram Business hesabı gerekir (Page ID DEĞİL, App ID DEĞİL). Görsel zorunludur.',
+    docsUrl: 'https://developers.facebook.com/tools/explorer/',
+    docsLabel: 'Graph API Explorer',
+  },
+  FACEBOOK: {
+    externalId: 'Page ID',
+    accessToken: 'Page Access Token',
+    help: 'Meta Graph API üzerinden sayfa token’ı al.',
+    docsUrl: 'https://developers.facebook.com/tools/explorer/',
+    docsLabel: 'Graph API Explorer',
+  },
+  TIKTOK: {
+    externalId: 'Open ID',
+    accessToken: 'Access Token',
+    help: 'TikTok Developer portal — video içerik zorunludur.',
+    docsUrl: 'https://developers.tiktok.com/',
+    docsLabel: 'TikTok for Developers',
+  },
+  TELEGRAM: {
+    externalId: 'Kanal (@kanaladi veya chat_id)',
+    accessToken: 'Bot Token',
+    help: 'Telegram’da @BotFather ile bot oluştur, botu kanalına yönetici ekle. En kolay kanal budur.',
+    docsUrl: 'https://core.telegram.org/bots#botfather',
+    docsLabel: '@BotFather',
+  },
+  BLUESKY: {
+    externalId: 'Handle (örn: atb.bsky.social)',
+    accessToken: 'App Password',
+    help: 'Bluesky → Settings → App Passwords’tan üret (normal şifreni girme). Onay gerekmez.',
+    docsUrl: 'https://bsky.app/settings/app-passwords',
+    docsLabel: 'App Passwords',
+  },
 };
 
 const emptyForm = {
@@ -71,6 +131,8 @@ export default function SocialPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [showToken, setShowToken] = useState(false);
+  const [showRefreshToken, setShowRefreshToken] = useState(false);
 
   async function load() {
     const data = await api.get<any[]>('/api/social/accounts');
@@ -84,6 +146,8 @@ export default function SocialPage() {
   function openAdd() {
     setEditingId(null);
     setForm(emptyForm);
+    setShowToken(false);
+    setShowRefreshToken(false);
     setOpen(true);
   }
 
@@ -97,6 +161,8 @@ export default function SocialPage() {
       refreshToken: '',
       expiresAt: toLocalInputValue(a.expiresAt),
     });
+    setShowToken(false);
+    setShowRefreshToken(false);
     setOpen(true);
   }
 
@@ -163,49 +229,155 @@ export default function SocialPage() {
               <Plus className="mr-2 h-4 w-4" /> Hesap Ekle
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Hesabı Düzenle' : 'Yeni Sosyal Hesap'}</DialogTitle>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${platformColors[form.platform]}`}
+                >
+                  {(() => {
+                    const PlatformIcon = platformIcons[form.platform];
+                    return PlatformIcon ? <PlatformIcon className="h-5 w-5 text-white" /> : null;
+                  })()}
+                </div>
+                <div>
+                  <DialogTitle>{editingId ? 'Hesabı Düzenle' : 'Yeni Sosyal Hesap'}</DialogTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {editingId ? form.accountName || form.platform : 'Yayın yapılacak platformu bağla'}
+                  </p>
+                </div>
+              </div>
             </DialogHeader>
-            <div className="space-y-3">
-              <select
-                value={form.platform}
-                onChange={(e) => setForm({ ...form, platform: e.target.value })}
-                disabled={!!editingId}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
-              >
-                <option value="TWITTER">Twitter / X</option>
-                <option value="LINKEDIN">LinkedIn</option>
-                <option value="INSTAGRAM">Instagram</option>
-                <option value="FACEBOOK">Facebook</option>
-                <option value="TIKTOK">TikTok</option>
-                <option value="TELEGRAM">Telegram (kanal)</option>
-                <option value="BLUESKY">Bluesky</option>
-              </select>
-              <p className="text-xs text-muted-foreground">{platformHints[form.platform]?.help}</p>
-              <Input placeholder="Hesap adı (panelde görünecek)" value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} />
-              <Input placeholder={platformHints[form.platform]?.externalId || 'External ID'} value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} />
-              <Input
-                type="password"
-                placeholder={editingId ? 'Boş bırak = mevcut token korunur' : platformHints[form.platform]?.accessToken || 'Access Token'}
-                value={form.accessToken}
-                onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
-              />
-              <Input
-                type="password"
-                placeholder={editingId ? 'Boş bırak = mevcut refresh token korunur' : 'Refresh Token (opsiyonel)'}
-                value={form.refreshToken}
-                onChange={(e) => setForm({ ...form, refreshToken: e.target.value })}
-              />
+
+            <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Son kullanma tarihi (opsiyonel)</label>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">Platform</label>
+                <select
+                  value={form.platform}
+                  onChange={(e) => setForm({ ...form, platform: e.target.value })}
+                  disabled={!!editingId}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="TWITTER">Twitter / X</option>
+                  <option value="LINKEDIN">LinkedIn</option>
+                  <option value="INSTAGRAM">Instagram</option>
+                  <option value="FACEBOOK">Facebook</option>
+                  <option value="TIKTOK">TikTok</option>
+                  <option value="TELEGRAM">Telegram (kanal)</option>
+                  <option value="BLUESKY">Bluesky</option>
+                </select>
+              </div>
+
+              <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>{platformHints[form.platform]?.help}</p>
+                  {platformHints[form.platform]?.docsUrl && (
+                    <a
+                      href={platformHints[form.platform].docsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-cyan-400 hover:underline"
+                    >
+                      {platformHints[form.platform].docsLabel}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  Hesap Adı <span className="text-destructive">*</span>
+                </label>
                 <Input
-                  type="datetime-local"
-                  value={form.expiresAt}
-                  onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+                  placeholder="Panelde görünecek isim"
+                  value={form.accountName}
+                  onChange={(e) => setForm({ ...form, accountName: e.target.value })}
                 />
               </div>
-              <Button variant="gradient" className="w-full" onClick={save}>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">
+                  {platformHints[form.platform]?.externalId || 'External ID'} <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  placeholder={platformHints[form.platform]?.externalId}
+                  value={form.externalId}
+                  onChange={(e) => setForm({ ...form, externalId: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-3.5 rounded-lg border border-border/70 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Kimlik Doğrulama
+                </p>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">
+                    {platformHints[form.platform]?.accessToken || 'Access Token'}
+                    {!editingId && <span className="text-destructive"> *</span>}
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showToken ? 'text' : 'password'}
+                      placeholder={editingId ? 'Boş bırak = mevcut token korunur' : platformHints[form.platform]?.accessToken || 'Access Token'}
+                      value={form.accessToken}
+                      onChange={(e) => setForm({ ...form, accessToken: e.target.value })}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowToken((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">
+                    Refresh Token <span className="font-normal text-muted-foreground">(opsiyonel)</span>
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showRefreshToken ? 'text' : 'password'}
+                      placeholder={editingId ? 'Boş bırak = mevcut refresh token korunur' : 'Refresh Token'}
+                      value={form.refreshToken}
+                      onChange={(e) => setForm({ ...form, refreshToken: e.target.value })}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowRefreshToken((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {showRefreshToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-foreground">
+                    Son Kullanma Tarihi <span className="font-normal text-muted-foreground">(opsiyonel)</span>
+                  </label>
+                  <Input
+                    type="datetime-local"
+                    value={form.expiresAt}
+                    onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                İptal
+              </Button>
+              <Button variant="gradient" onClick={save}>
                 {editingId ? 'Güncelle' : 'Kaydet'}
               </Button>
             </div>
