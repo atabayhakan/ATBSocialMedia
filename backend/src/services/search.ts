@@ -15,6 +15,7 @@ export const PAGE_INDEX: Array<{ href: string; title: string; keywords: string[]
   { href: '/dashboard', title: 'Genel Bakış', keywords: ['genel', 'bakis', 'bakış', 'dashboard', 'istatistik', 'kpi', 'ozet', 'özet', 'uret', 'üret'] },
   { href: '/dashboard/strategy', title: 'Marka Stratejisi', keywords: ['strateji', 'marka', 'pozisyon', 'ses', 'sutun', 'sütun', 'pillar', 'cadence', 'siklik', 'sıklık'] },
   { href: '/dashboard/trends', title: 'Trendler', keywords: ['trend', 'sinyal', 'skor', 'briefing', 'ozet', 'özet', 'fit matrix'] },
+  { href: '/dashboard/engagement', title: 'Etkileşim', keywords: ['dm', 'mesaj', 'yorum', 'etiketleme', 'mention', 'kriz', 'ozur', 'özür', 'sahte hesap', 'triyaj'] },
   { href: '/dashboard/calendar', title: 'İçerik Takvimi', keywords: ['takvim', 'icerik', 'içerik', 'onay', 'gonderi', 'gönderi', 'post', 'yayin', 'yayın', 'reddet', 'zamanla', 'taslak'] },
   { href: '/dashboard/sources', title: 'Haber Kaynakları', keywords: ['kaynak', 'rss', 'haber', 'feed', 'tara', 'scrape'] },
   { href: '/dashboard/personas', title: 'AI Kişilikler', keywords: ['persona', 'kisilik', 'kişilik', 'ton', 'ses', 'varsayilan', 'varsayılan'] },

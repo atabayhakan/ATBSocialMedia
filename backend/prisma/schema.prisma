@@ -19,21 +19,24 @@ model User {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  personas         Persona[]
-  sources          NewsSource[]
-  posts            Post[]
-  accounts         SocialAccount[]
-  whatsappConfig   WhatsAppConfig?
-  canvaConfig      CanvaConfig?
-  assistantConfig  AssistantConfig?
-  niches           Niche[]
-  imageTemplates   ImageTemplate[]
-  brandStrategy    BrandStrategy?
-  cadenceRules     CadenceRule[]
-  calendarSlots    CalendarSlot[]
-  repurposeSources RepurposeSource[]
-  trendSignals     TrendSignal[]
-  reports          Report[]
+  personas            Persona[]
+  sources             NewsSource[]
+  posts               Post[]
+  accounts            SocialAccount[]
+  whatsappConfig      WhatsAppConfig?
+  canvaConfig         CanvaConfig?
+  assistantConfig     AssistantConfig?
+  niches              Niche[]
+  imageTemplates      ImageTemplate[]
+  brandStrategy       BrandStrategy?
+  cadenceRules        CadenceRule[]
+  calendarSlots       CalendarSlot[]
+  repurposeSources    RepurposeSource[]
+  trendSignals        TrendSignal[]
+  reports             Report[]
+  engagementItems     EngagementItem[]
+  crisisEvents        CrisisEvent[]
+  impersonatorReports ImpersonatorReport[]
 }
 
 enum UserRole {
@@ -492,6 +495,76 @@ model Report {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, type, createdAt])
+}
+
+enum EngagementKind {
+  DM
+  MENTION
+  COMMENT
+}
+
+enum EngagementStatus {
+  NEW
+  TRIAGED
+  REPLIED
+  IGNORED
+  ESCALATED
+}
+
+// Gerçek zamanlı platform okuma erişimi yok — v1 manuel-paste: kullanıcı bir DM/mention/
+// yorumu yapıştırır, AI triyaj eder (kategori/öncelik/sentiment) ve yanıt taslağı önerir.
+model EngagementItem {
+  id            String           @id @default(cuid())
+  userId        String
+  accountId     String?
+  platform      Platform
+  kind          EngagementKind
+  category      String? // yalnız DM: SALES/SUPPORT/COLLABORATION/SPAM/PERSONAL/PRESS
+  priority      String? // LOW/MEDIUM/HIGH/URGENT
+  sentiment     String? // POSITIVE/NEUTRAL/NEGATIVE
+  authorHandle  String
+  content       String
+  permalink     String?
+  receivedAt    DateTime
+  status        EngagementStatus @default(NEW)
+  slaDueAt      DateTime?
+  replyBody     String?
+  repliedAt     DateTime?
+  crisisEventId String?
+  createdAt     DateTime         @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crisisEvent CrisisEvent? @relation(fields: [crisisEventId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+}
+
+model CrisisEvent {
+  id             String    @id @default(cuid())
+  userId         String
+  title          String
+  triageCategory String // LEGITIMATE_COMPLAINT/FAIR_CRITICISM/MISUNDERSTANDING/TROLL/COORDINATED_ATTACK
+  severity       String // LOW/MEDIUM/HIGH/CRITICAL
+  status         String    @default("OPEN") // OPEN/RESPONDING/MONITORING/RESOLVED
+  apologyDraft   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items EngagementItem[]
+
+  @@index([userId, status])
+}
+
+model ImpersonatorReport {
+  id                  String   @id @default(cuid())
+  userId              String
+  platform            Platform
+  impersonatingHandle String
+  status              String   @default("DETECTED") // DETECTED/REPORTED/RESOLVED/DISMISSED
+  detectedAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

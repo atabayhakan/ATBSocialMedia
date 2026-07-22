@@ -4,6 +4,7 @@ import { fetchAllSources } from './newsFetcher';
 import { processPendingPosts, sweepStuckTargets } from './publisher';
 import { generateSlotsForAllUsers } from './planner';
 import { scanTrendsForAllUsers } from './trends';
+import { notifyCritical } from './notifier';
 import { prisma } from '../lib/prisma';
 
 export function startScheduler() {
@@ -65,6 +66,24 @@ export function startScheduler() {
       logger.info({ created }, '⏰ Zamanlayıcı: trend sinyalleri tarandı');
     } catch (e) {
       logger.error({ e }, 'Zamanlayıcı trend tarama hatası');
+    }
+  });
+
+  // Her 15dk: SLA süresi dolmuş (ve hâlâ yanıtlanmamış) etkileşimler için TEK toplu
+  // bildirim gönder (tek tek değil — her tick'te spam olmasın).
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const overdue = await prisma.engagementItem.findMany({
+        where: { slaDueAt: { lt: new Date() }, status: { in: ['NEW', 'TRIAGED'] } },
+      });
+      if (overdue.length) {
+        await notifyCritical({
+          title: `${overdue.length} etkileşim SLA süresini aştı`,
+          body: overdue.map((i: any) => `- [${i.platform} ${i.kind}] ${i.authorHandle}`).join('\n'),
+        });
+      }
+    } catch (e) {
+      logger.error({ e }, 'Zamanlayıcı SLA kontrol hatası');
     }
   });
 

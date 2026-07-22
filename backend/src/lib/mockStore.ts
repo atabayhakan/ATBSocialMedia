@@ -164,6 +164,9 @@ class MockStore {
   repurposeInsight = this.proxy('RepurposeInsight');
   trendSignal = this.proxy('TrendSignal');
   report = this.proxy('Report');
+  engagementItem = this.proxy('EngagementItem');
+  crisisEvent = this.proxy('CrisisEvent');
+  impersonatorReport = this.proxy('ImpersonatorReport');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
@@ -410,6 +413,14 @@ class MockStore {
     'TrendSignal.user': { model: 'User', fk: 'userId', list: false },
     'User.reports': { model: 'Report', fk: 'userId', list: true },
     'Report.user': { model: 'User', fk: 'userId', list: false },
+    'User.engagementItems': { model: 'EngagementItem', fk: 'userId', list: true },
+    'EngagementItem.user': { model: 'User', fk: 'userId', list: false },
+    'EngagementItem.crisisEvent': { model: 'CrisisEvent', fk: 'crisisEventId', list: false },
+    'User.crisisEvents': { model: 'CrisisEvent', fk: 'userId', list: true },
+    'CrisisEvent.user': { model: 'User', fk: 'userId', list: false },
+    'CrisisEvent.items': { model: 'EngagementItem', fk: 'crisisEventId', list: true },
+    'User.impersonatorReports': { model: 'ImpersonatorReport', fk: 'userId', list: true },
+    'ImpersonatorReport.user': { model: 'User', fk: 'userId', list: false },
   };
 
   private applyInclude(row: any, include: any, model: string): any {

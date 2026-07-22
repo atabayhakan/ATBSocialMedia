@@ -31,6 +31,8 @@ import plannerRoutes from './routes/planner';
 import repurposeRoutes from './routes/repurpose';
 import contentToolsRoutes from './routes/contentTools';
 import trendsRoutes from './routes/trends';
+import engagementRoutes from './routes/engagement';
+import crisisRoutes from './routes/crisis';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -103,6 +105,8 @@ app.use('/api/planner', requireAuth, plannerRoutes);
 app.use('/api/repurpose', requireAuth, repurposeRoutes);
 app.use('/api/content-tools', requireAuth, contentToolsRoutes);
 app.use('/api/trends', requireAuth, trendsRoutes);
+app.use('/api/engagement', requireAuth, engagementRoutes);
+app.use('/api/crisis', requireAuth, crisisRoutes);
 
 // Üretilen/yüklenen görseller — Instagram/Facebook/TikTok gibi dış servislerin
 // paylaşım sırasında görseli çekebilmesi için kimlik doğrulamasız (genel-erişimli).

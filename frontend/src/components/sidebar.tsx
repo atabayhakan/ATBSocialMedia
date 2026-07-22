@@ -15,6 +15,7 @@ import {
   Sparkles,
   Compass,
   TrendingUp,
+  MessageSquareWarning,
 } from 'lucide-react';
 
 const items = [
@@ -22,6 +23,7 @@ const items = [
   { href: '/dashboard/strategy', label: 'Marka Stratejisi', icon: Compass },
   { href: '/dashboard/calendar', label: 'İçerik Takvimi', icon: Calendar },
   { href: '/dashboard/trends', label: 'Trendler', icon: TrendingUp },
+  { href: '/dashboard/engagement', label: 'Etkileşim', icon: MessageSquareWarning },
   { href: '/dashboard/sources', label: 'Haber Kaynakları', icon: Newspaper },
   { href: '/dashboard/personas', label: 'AI Kişilikler', icon: Users },
   { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageCircle },
