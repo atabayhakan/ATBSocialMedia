@@ -282,7 +282,7 @@ export default function CalendarPage() {
             <>
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Marka Stratejisi'ndeki yayın sıklığı kurallarından üretilen önümüzdeki 3 haftalık slotlar.
+                  Marka Stratejisi’ndeki yayın sıklığı kurallarından üretilen önümüzdeki 3 haftalık slotlar.
                 </p>
                 <Button size="sm" variant="gradient" disabled={generatingSlots} onClick={generateSlots}>
                   <Sparkles className="mr-2 h-3.5 w-3.5" />
@@ -292,8 +292,8 @@ export default function CalendarPage() {
               {slots.length === 0 && (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    Henüz slot yok. Önce Marka Stratejisi &gt; Yayın Sıklığı'ndan kural ekle, sonra "Cadence'ten Slot
-                    Üret"e bas.
+                    Henüz slot yok. Önce Marka Stratejisi &gt; Yayın Sıklığı’ndan kural ekle, sonra “Cadence’ten Slot
+                    Üret”e bas.
                   </CardContent>
                 </Card>
               )}

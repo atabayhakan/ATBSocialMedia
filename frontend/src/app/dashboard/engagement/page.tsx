@@ -249,7 +249,7 @@ export default function EngagementPage() {
           {items.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                Henüz kayıt yok. "Manuel Ekle"yle bir DM/etiketleme/yorum yapıştır.
+                Henüz kayıt yok. “Manuel Ekle”yle bir DM/etiketleme/yorum yapıştır.
               </CardContent>
             </Card>
           )}

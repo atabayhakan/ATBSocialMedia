@@ -280,7 +280,7 @@ export default function StrategyPage() {
           </div>
           {!strategy && (
             <p className="text-sm text-muted-foreground">
-              Sütun eklemeden önce "Marka Sesi" sekmesinden stratejini kaydet.
+              Sütun eklemeden önce “Marka Sesi” sekmesinden stratejini kaydet.
             </p>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
