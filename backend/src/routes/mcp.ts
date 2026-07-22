@@ -13,13 +13,24 @@ import { buildLiveContext } from '../services/assistant';
 import { searchAll } from '../services/search';
 
 const PROTOCOL_FALLBACK = '2025-03-26';
-const DEFAULT_USER = 'demo-user';
+
+// Panel tek-kiracılıdır (single-tenant): "kullanıcı" sabit bir id yerine DB'deki
+// tek gerçek kullanıcıdan dinamik çözülür. Önceden burada seed.ts'in ürettiği
+// literal 'demo-user' id'si sabitlenmişti; NextAuth /setup akışı farklı bir
+// e-postayla kayıt olduğunda yeni (cuid'li) bir kullanıcı satırı oluşturdu ve
+// bu sabit artık hiçbir satırla eşleşmiyordu — tüm MCP araçları sessizce boş
+// dönüyordu. Dinamik çözüm bu sınıf hatayı bir daha yaşatmaz.
+async function resolveUserId(): Promise<string> {
+  const user = await prisma.user.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (!user) throw new Error('Sistemde kullanıcı yok — önce /setup ile hesap oluşturun.');
+  return user.id;
+}
 
 interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, any>;
-  handler: (args: any) => Promise<string>;
+  handler: (args: any, userId: string) => Promise<string>;
 }
 
 const TOOLS: McpTool[] = [
@@ -28,7 +39,7 @@ const TOOLS: McpTool[] = [
     description:
       'ATBSocialMedia panelinin canlı durum özetini döndürür: gönderi sayıları (duruma göre), başarısız yayın hedefleri ve hataları, haber kaynakları, WhatsApp/Canva bağlantı durumu, otonom mod ve yayın dili.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async () => buildLiveContext(DEFAULT_USER),
+    handler: async (_args, userId) => buildLiveContext(userId),
   },
   {
     name: 'list_posts',
@@ -45,10 +56,10 @@ const TOOLS: McpTool[] = [
       },
       additionalProperties: false,
     },
-    handler: async (args) => {
+    handler: async (args, userId) => {
       const status = args?.status || 'PENDING_APPROVAL';
       const posts = await prisma.post.findMany({
-        where: { userId: DEFAULT_USER, status },
+        where: { userId, status },
         orderBy: { createdAt: 'desc' },
         take: 20,
         include: { targets: true },
@@ -69,8 +80,8 @@ const TOOLS: McpTool[] = [
     description:
       'Sıradaki kullanılmamış haberden AI ile yeni bir sosyal medya gönderisi taslağı üretir (onay kuyruğuna düşer). Üretim 60-90 saniye sürebilir.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async () => {
-      const post = await generatePostForUser(DEFAULT_USER);
+    handler: async (_args, userId) => {
+      const post = await generatePostForUser(userId);
       return `Taslak üretildi.\nid: ${post.id}\nbaşlık: ${post.title}\ndurum: ${post.status}\nmetin: ${post.body}`;
     },
   },
@@ -87,10 +98,10 @@ const TOOLS: McpTool[] = [
       required: ['postId'],
       additionalProperties: false,
     },
-    handler: async (args) => {
-      // Sahiplik kısıtı: MCP token'ı yalnız DEFAULT_USER'ın gönderilerini yönetebilir
+    handler: async (args, userId) => {
+      // Sahiplik kısıtı: MCP token'ı yalnız çözülen kullanıcının gönderilerini yönetebilir
       // (list_posts ile mutasyonlar arasındaki kapsam tutarsızlığını giderir).
-      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId: DEFAULT_USER } });
+      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId } });
       if (!owned) throw new Error('Gönderi bulunamadı');
       const scheduledAt = args.scheduledAt ? new Date(args.scheduledAt) : undefined;
       if (scheduledAt && isNaN(scheduledAt.getTime())) throw new Error('Geçersiz scheduledAt tarihi');
@@ -109,9 +120,9 @@ const TOOLS: McpTool[] = [
       required: ['postId'],
       additionalProperties: false,
     },
-    handler: async (args) => {
+    handler: async (args, userId) => {
       const { count } = await prisma.post.updateMany({
-        where: { id: args.postId, userId: DEFAULT_USER },
+        where: { id: args.postId, userId },
         data: { status: 'REJECTED' },
       });
       if (!count) throw new Error('Gönderi bulunamadı');
@@ -133,8 +144,8 @@ const TOOLS: McpTool[] = [
       required: ['postId'],
       additionalProperties: false,
     },
-    handler: async (args) => {
-      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId: DEFAULT_USER } });
+    handler: async (args, userId) => {
+      const owned = await prisma.post.findFirst({ where: { id: args.postId, userId } });
       if (!owned) throw new Error('Gönderi bulunamadı');
       if (owned.status === 'REJECTED') return 'Reddedilmiş gönderi yayınlanamaz.';
       const targets = await prisma.postTarget.findMany({ where: { postId: args.postId } });
@@ -171,8 +182,8 @@ const TOOLS: McpTool[] = [
       required: ['query'],
       additionalProperties: false,
     },
-    handler: async (args) => {
-      const results = await searchAll(DEFAULT_USER, args.query);
+    handler: async (args, userId) => {
+      const results = await searchAll(userId, args.query);
       return results.length
         ? results.map((r) => `[${r.type}] ${r.title} (${r.detail}) → ${r.href}`).join('\n')
         : 'Sonuç bulunamadı.';
@@ -245,7 +256,8 @@ router.post('/', async (req, res) => {
         const tool = TOOLS.find((t) => t.name === msg.params?.name);
         if (!tool) return res.json(rpcError(msg.id, -32602, `Bilinmeyen araç: ${msg.params?.name}`));
         try {
-          const text = await tool.handler(msg.params?.arguments || {});
+          const userId = await resolveUserId();
+          const text = await tool.handler(msg.params?.arguments || {}, userId);
           return res.json(rpcResult(msg.id, { content: [{ type: 'text', text }] }));
         } catch (e: any) {
           return res.json(
