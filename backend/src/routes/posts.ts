@@ -1,8 +1,15 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { generatePostForUser, approvePost, publishToPlatform } from '../services/publisher';
 
 const router = Router();
+
+const postUpdateSchema = z.object({
+  title: z.string().min(1).optional(),
+  body: z.string().min(1).optional(),
+  hashtags: z.array(z.string()).optional(),
+});
 
 router.get('/', async (req, res) => {
   const userId = req.userId!;
@@ -14,6 +21,23 @@ router.get('/', async (req, res) => {
     take: 100,
   });
   res.json(posts);
+});
+
+// Yalnız DRAFT/PENDING_APPROVAL durumundaki gönderiler düzenlenebilir — onaylanmış/
+// zamanlanmış/yayınlanmış bir gönderiyi değiştirmek yarım-yayın karmaşasına yol açar
+// (PostTarget'lar zaten eski içerikle oluşmuş olabilir).
+router.put('/:id', async (req, res) => {
+  const parsed = postUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const owned = await prisma.post.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!owned) return res.status(404).json({ error: 'Gönderi bulunamadı' });
+  if (!['DRAFT', 'PENDING_APPROVAL'].includes(owned.status)) {
+    return res.status(400).json({ error: 'Yalnız onay bekleyen taslaklar düzenlenebilir' });
+  }
+
+  const post = await prisma.post.update({ where: { id: req.params.id }, data: parsed.data });
+  res.json(post);
 });
 
 router.post('/generate', async (req, res) => {

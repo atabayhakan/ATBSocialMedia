@@ -160,6 +160,8 @@ class MockStore {
   contentPillar = this.proxy('ContentPillar');
   cadenceRule = this.proxy('CadenceRule');
   calendarSlot = this.proxy('CalendarSlot');
+  repurposeSource = this.proxy('RepurposeSource');
+  repurposeInsight = this.proxy('RepurposeInsight');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
@@ -398,6 +400,10 @@ class MockStore {
     'CadenceRule.user': { model: 'User', fk: 'userId', list: false },
     'User.calendarSlots': { model: 'CalendarSlot', fk: 'userId', list: true },
     'CalendarSlot.user': { model: 'User', fk: 'userId', list: false },
+    'User.repurposeSources': { model: 'RepurposeSource', fk: 'userId', list: true },
+    'RepurposeSource.user': { model: 'User', fk: 'userId', list: false },
+    'RepurposeSource.insights': { model: 'RepurposeInsight', fk: 'sourceId', list: true },
+    'RepurposeInsight.source': { model: 'RepurposeSource', fk: 'sourceId', list: false },
   };
 
   private applyInclude(row: any, include: any, model: string): any {

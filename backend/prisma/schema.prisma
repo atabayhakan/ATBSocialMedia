@@ -19,18 +19,19 @@ model User {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  personas        Persona[]
-  sources         NewsSource[]
-  posts           Post[]
-  accounts        SocialAccount[]
-  whatsappConfig  WhatsAppConfig?
-  canvaConfig     CanvaConfig?
-  assistantConfig AssistantConfig?
-  niches          Niche[]
-  imageTemplates  ImageTemplate[]
-  brandStrategy   BrandStrategy?
-  cadenceRules    CadenceRule[]
-  calendarSlots   CalendarSlot[]
+  personas         Persona[]
+  sources          NewsSource[]
+  posts            Post[]
+  accounts         SocialAccount[]
+  whatsappConfig   WhatsAppConfig?
+  canvaConfig      CanvaConfig?
+  assistantConfig  AssistantConfig?
+  niches           Niche[]
+  imageTemplates   ImageTemplate[]
+  brandStrategy    BrandStrategy?
+  cadenceRules     CadenceRule[]
+  calendarSlots    CalendarSlot[]
+  repurposeSources RepurposeSource[]
 }
 
 enum UserRole {
@@ -411,6 +412,35 @@ model CalendarSlot {
 
   @@unique([userId, platform, scheduledFor])
   @@index([userId, scheduledFor])
+}
+
+// Uzun-form metni (blog/podcast transkripti/newsletter) çoklu taslak gönderiye böler.
+// Her RepurposeInsight, createDraftPost(origin:'REPURPOSE') ile üretilmiş bir Post'a işaret eder.
+model RepurposeSource {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // BLOG / PODCAST_TRANSCRIPT / NEWSLETTER / MANUAL_TEXT
+  title     String
+  rawText   String
+  sourceUrl String?
+  createdAt DateTime @default(now())
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  insights RepurposeInsight[]
+
+  @@index([userId])
+}
+
+model RepurposeInsight {
+  id              String  @id @default(cuid())
+  sourceId        String
+  summary         String
+  order           Int
+  generatedPostId String?
+
+  source RepurposeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
 }
 
 model AuditLog {
