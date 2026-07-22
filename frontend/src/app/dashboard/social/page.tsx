@@ -65,11 +65,12 @@ const platformHints: Record<
     docsLabel: 'LinkedIn Developers',
   },
   INSTAGRAM: {
-    externalId: 'IG Business Account ID',
+    externalId: 'Instagram User ID (sayısal)',
     accessToken: 'Access Token',
-    help: 'Meta Graph API — Instagram Business hesabı gerekir (Page ID DEĞİL, App ID DEĞİL). Görsel zorunludur.',
-    docsUrl: 'https://developers.facebook.com/tools/explorer/',
-    docsLabel: 'Graph API Explorer',
+    help:
+      'Önerilen: Meta konsolunda "API setup with Instagram login" → Generate token — sayısal Instagram User ID + IG… ile başlayan token (Facebook Page gerekmez). Alternatif: Page-bağlı IG Business Account ID + EAA… Page token. App ID veya App Secret DEĞİL. Görsel zorunludur.',
+    docsUrl: 'https://developers.facebook.com/apps/',
+    docsLabel: 'Meta App Dashboard',
   },
   FACEBOOK: {
     externalId: 'Page ID',
