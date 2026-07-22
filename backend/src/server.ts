@@ -26,6 +26,7 @@ import assistantRoutes from './routes/assistant';
 import searchRoutes from './routes/search';
 import mcpRoutes from './routes/mcp';
 import imageTemplatesRoutes from './routes/imageTemplates';
+import strategyRoutes from './routes/strategy';
 
 import { startScheduler } from './services/scheduler';
 import { initWhatsApp } from './services/whatsapp';
@@ -93,6 +94,7 @@ app.use('/api/settings', requireAuth, settingsRoutes);
 app.use('/api/assistant', requireAuth, assistantRoutes);
 app.use('/api/search', requireAuth, searchRoutes);
 app.use('/api/image-templates', requireAuth, imageTemplatesRoutes);
+app.use('/api/strategy', requireAuth, strategyRoutes);
 
 // Üretilen/yüklenen görseller — Instagram/Facebook/TikTok gibi dış servislerin
 // paylaşım sırasında görseli çekebilmesi için kimlik doğrulamasız (genel-erişimli).

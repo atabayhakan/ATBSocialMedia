@@ -8,26 +8,28 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String?
-  role          UserRole  @default(OWNER)
-  timezone      String    @default("Europe/Istanbul")
-  defaultMode   PublishMode @default(APPROVAL)
-  publishLanguage String  @default("tr")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String      @id @default(cuid())
+  email           String      @unique
+  name            String?
+  passwordHash    String?
+  role            UserRole    @default(OWNER)
+  timezone        String      @default("Europe/Istanbul")
+  defaultMode     PublishMode @default(APPROVAL)
+  publishLanguage String      @default("tr")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  personas      Persona[]
-  sources       NewsSource[]
-  posts         Post[]
-  accounts      SocialAccount[]
-  whatsappConfig WhatsAppConfig?
-  canvaConfig   CanvaConfig?
+  personas        Persona[]
+  sources         NewsSource[]
+  posts           Post[]
+  accounts        SocialAccount[]
+  whatsappConfig  WhatsAppConfig?
+  canvaConfig     CanvaConfig?
   assistantConfig AssistantConfig?
-  niches        Niche[]
-  imageTemplates ImageTemplate[]
+  niches          Niche[]
+  imageTemplates  ImageTemplate[]
+  brandStrategy   BrandStrategy?
+  cadenceRules    CadenceRule[]
 }
 
 enum UserRole {
@@ -44,30 +46,30 @@ model Niche {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sources   NewsSource[]
-  posts     Post[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources NewsSource[]
+  posts   Post[]
 
   @@index([userId])
 }
 
 model NewsSource {
-  id        String   @id @default(cuid())
-  userId    String
-  nicheId   String?
-  type      SourceType
-  url       String
-  name      String
-  language  String   @default("en")
-  targetLanguage String?   // boş = kullanıcının genel yayın dili (User.publishLanguage)
-  active    Boolean  @default(true)
-  intervalMin Int    @default(30)
-  lastFetchedAt DateTime?
-  createdAt DateTime @default(now())
+  id             String     @id @default(cuid())
+  userId         String
+  nicheId        String?
+  type           SourceType
+  url            String
+  name           String
+  language       String     @default("en")
+  targetLanguage String? // boş = kullanıcının genel yayın dili (User.publishLanguage)
+  active         Boolean    @default(true)
+  intervalMin    Int        @default(30)
+  lastFetchedAt  DateTime?
+  createdAt      DateTime   @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  niche     Niche?   @relation(fields: [nicheId], references: [id], onDelete: SetNull)
-  items     NewsItem[]
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  niche Niche?     @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  items NewsItem[]
 
   @@index([userId, active])
 }
@@ -79,66 +81,66 @@ enum SourceType {
 }
 
 model NewsItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   sourceId    String
   externalId  String
   title       String
   summary     String?
   content     String?
-  url         String   @unique
+  url         String    @unique
   imageUrl    String?
-  language    String   @default("en")
+  language    String    @default("en")
   publishedAt DateTime?
-  fetchedAt   DateTime @default(now())
-  used        Boolean  @default(false)
+  fetchedAt   DateTime  @default(now())
+  used        Boolean   @default(false)
 
-  source      NewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  source NewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId, used])
   @@index([publishedAt])
 }
 
 model Persona {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  tone      String
-  language  String   @default("tr")
-  voiceRules String?
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  tone            String
+  language        String   @default("tr")
+  voiceRules      String?
   forbiddenTopics String?
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  posts     Post[]
-  replies   WhatsAppReply[]
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts   Post[]
+  replies WhatsAppReply[]
 
   @@index([userId])
 }
 
 model Post {
-  id           String   @id @default(cuid())
-  userId       String
-  personaId    String?
-  nicheId      String?
-  sourceItemId String?
-  status       PostStatus @default(DRAFT)
-  mode         PublishMode @default(APPROVAL)
-  title        String
-  body         String
-  hashtags     String[]
-  mediaUrls    String[]
+  id            String      @id @default(cuid())
+  userId        String
+  personaId     String?
+  nicheId       String?
+  sourceItemId  String?
+  status        PostStatus  @default(DRAFT)
+  mode          PublishMode @default(APPROVAL)
+  title         String
+  body          String
+  hashtags      String[]
+  mediaUrls     String[]
   canvaDesignId String?
-  scheduledAt  DateTime?
-  publishedAt  DateTime?
-  error        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  error         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  persona   Persona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
-  niche     Niche?   @relation(fields: [nicheId], references: [id], onDelete: SetNull)
-  targets   PostTarget[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona Persona?     @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  niche   Niche?       @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  targets PostTarget[]
 
   @@index([userId, status])
   @@index([scheduledAt])
@@ -161,18 +163,18 @@ enum PublishMode {
 }
 
 model PostTarget {
-  id        String   @id @default(cuid())
-  postId    String
-  accountId String
-  platform  Platform
-  status    PostStatus @default(PENDING_APPROVAL)
-  externalId String?
-  error     String?
+  id          String     @id @default(cuid())
+  postId      String
+  accountId   String
+  platform    Platform
+  status      PostStatus @default(PENDING_APPROVAL)
+  externalId  String?
+  error       String?
   publishedAt DateTime?
-  updatedAt DateTime @default(now()) @updatedAt
+  updatedAt   DateTime   @default(now()) @updatedAt
 
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  account   SocialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  post    Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  account SocialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([postId])
   @@index([accountId])
@@ -189,7 +191,7 @@ enum Platform {
 }
 
 model SocialAccount {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
   platform     Platform
   accountName  String
@@ -198,29 +200,29 @@ model SocialAccount {
   refreshToken String?
   expiresAt    DateTime?
   meta         Json?
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targets      PostTarget[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targets PostTarget[]
 
   @@unique([platform, externalId])
   @@index([userId])
 }
 
 model WhatsAppConfig {
-  id              String   @id @default(cuid())
-  userId          String   @unique
+  id              String       @id @default(cuid())
+  userId          String       @unique
   mode            WhatsAppMode
   phoneNumber     String?
   webhookUrl      String?
-  isConnected     Boolean  @default(false)
+  isConnected     Boolean      @default(false)
   lastConnectedAt DateTime?
   meta            Json?
 
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages        WhatsAppMessage[]
-  replies         WhatsAppReply[]
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages WhatsAppMessage[]
+  replies  WhatsAppReply[]
 }
 
 enum WhatsAppMode {
@@ -229,53 +231,53 @@ enum WhatsAppMode {
 }
 
 model WhatsAppMessage {
-  id          String   @id @default(cuid())
-  configId    String
-  remoteJid   String
-  fromMe      Boolean  @default(false)
-  body        String
-  mediaUrl    String?
-  receivedAt  DateTime @default(now())
-  replyId     String?
+  id         String   @id @default(cuid())
+  configId   String
+  remoteJid  String
+  fromMe     Boolean  @default(false)
+  body       String
+  mediaUrl   String?
+  receivedAt DateTime @default(now())
+  replyId    String?
 
-  config      WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  reply       WhatsAppReply? @relation(fields: [replyId], references: [id], onDelete: SetNull)
+  config WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  reply  WhatsAppReply? @relation(fields: [replyId], references: [id], onDelete: SetNull)
 
   @@index([configId, receivedAt])
 }
 
 model WhatsAppReply {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   configId     String
   personaId    String?
   remoteJid    String
   incomingBody String
   replyBody    String
-  isCritical   Boolean  @default(false)
+  isCritical   Boolean   @default(false)
   notifiedAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
-  config       WhatsAppConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  persona      Persona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
-  messages     WhatsAppMessage[]
+  config   WhatsAppConfig    @relation(fields: [configId], references: [id], onDelete: Cascade)
+  persona  Persona?          @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  messages WhatsAppMessage[]
 
   @@index([configId, createdAt])
 }
 
 model ImageTemplate {
-  id              String   @id @default(cuid())
-  userId          String
-  name            String
-  backgroundPath  String   // uploads/templates/ altındaki dosya yolu
-  width           Int      @default(1080)
-  height          Int      @default(1350)
-  panelPosition   PanelPosition @default(BOTTOM)
-  textColor       TextColor     @default(LIGHT)
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String        @id @default(cuid())
+  userId         String
+  name           String
+  backgroundPath String // uploads/templates/ altındaki dosya yolu
+  width          Int           @default(1080)
+  height         Int           @default(1350)
+  panelPosition  PanelPosition @default(BOTTOM)
+  textColor      TextColor     @default(LIGHT)
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -292,17 +294,17 @@ enum TextColor {
 }
 
 model CanvaConfig {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  accessToken  String
-  refreshToken String
-  expiresAt    DateTime
-  scope        String?
-  defaultTemplateId String?   // otomatik görsel üretiminde kullanılacak şablon
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  accessToken       String
+  refreshToken      String
+  expiresAt         DateTime
+  scope             String?
+  defaultTemplateId String? // otomatik görsel üretiminde kullanılacak şablon
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AssistantConfig {
@@ -315,7 +317,7 @@ model AssistantConfig {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AssistantMessage {
@@ -326,6 +328,57 @@ model AssistantMessage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Marka-geneli stratejik katman: pozisyonlama + ses rehberi. Persona'dan farkı —
+// Persona içerik üretimi anındaki ses VARYANTI, BrandStrategy tüm personaların
+// uyması gereken üst-seviye marka kimliği (tek, singleton).
+model BrandStrategy {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  positioningStatement String?
+  targetAudience       String?
+  voiceDos             String[]
+  voiceDonts           String[]
+  platformFlex         Json? // platform bazlı ton sapması, örn. {"LINKEDIN": "daha resmi"}
+  driftNotes           String? // en son AI drift-tespitinin bulguları
+  driftCheckedAt       DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pillars ContentPillar[]
+}
+
+model ContentPillar {
+  id               String   @id @default(cuid())
+  strategyId       String
+  name             String
+  description      String?
+  targetPercentage Int      @default(20)
+  topicBank        String[]
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  strategy BrandStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@index([strategyId])
+}
+
+// Platform × haftagünü × saat yayın sıklığı matrisi. weekday: 0=Pazar..6=Cumartesi.
+model CadenceRule {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  Platform
+  weekday   Int
+  timeOfDay String // "HH:mm", örn. "09:00"
+  pillarId  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
 }
 
 model AuditLog {

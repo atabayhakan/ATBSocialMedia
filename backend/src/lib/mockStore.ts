@@ -156,6 +156,9 @@ class MockStore {
   auditLog = this.proxy('AuditLog');
   assistantConfig = this.proxy('AssistantConfig');
   assistantMessage = this.proxy('AssistantMessage');
+  brandStrategy = this.proxy('BrandStrategy');
+  contentPillar = this.proxy('ContentPillar');
+  cadenceRule = this.proxy('CadenceRule');
 
   private proxy(model: string) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- döndürülen closure'ların içinde this'e erişim için gerekli
@@ -213,8 +216,11 @@ class MockStore {
       },
       update: async (args: any) => {
         const rows = store.getModel(model);
-        const idx = rows.findIndex((r) => r.id === args.where.id);
-        if (idx === -1) throw new Error(`${model}#${args.where.id} bulunamadı`);
+        // Prisma `where` tekil herhangi bir alanla (id, @unique userId vb.) çağrılabilir —
+        // sadece `id` varsaymak singleton config modellerinde (canvaConfig.update({where:{userId}}) gibi) kırılıyordu.
+        const whereKey = Object.keys(args.where)[0];
+        const idx = rows.findIndex((r) => r[whereKey] === args.where[whereKey]);
+        if (idx === -1) throw new Error(`${model}#${args.where[whereKey]} bulunamadı`);
         const updated = { ...rows[idx], ...args.data, updatedAt: new Date() };
         rows[idx] = updated;
         return args.include ? store.applyInclude({ ...updated }, args.include, model) : updated;
@@ -232,8 +238,9 @@ class MockStore {
       },
       delete: async (args: any) => {
         const rows = store.getModel(model);
-        const idx = rows.findIndex((r) => r.id === args.where.id);
-        if (idx === -1) throw new Error(`${model}#${args.where.id} bulunamadı`);
+        const whereKey = Object.keys(args.where)[0];
+        const idx = rows.findIndex((r) => r[whereKey] === args.where[whereKey]);
+        if (idx === -1) throw new Error(`${model}#${args.where[whereKey]} bulunamadı`);
         const [removed] = rows.splice(idx, 1);
         return removed;
       },
@@ -381,6 +388,13 @@ class MockStore {
     'WhatsAppReply.messages': { model: 'WhatsAppMessage', fk: 'replyId', list: true },
 
     'CanvaConfig.user': { model: 'User', fk: 'userId', list: false },
+
+    'User.brandStrategy': { model: 'BrandStrategy', fk: 'userId', list: false },
+    'User.cadenceRules': { model: 'CadenceRule', fk: 'userId', list: true },
+    'BrandStrategy.user': { model: 'User', fk: 'userId', list: false },
+    'BrandStrategy.pillars': { model: 'ContentPillar', fk: 'strategyId', list: true },
+    'ContentPillar.strategy': { model: 'BrandStrategy', fk: 'strategyId', list: false },
+    'CadenceRule.user': { model: 'User', fk: 'userId', list: false },
   };
 
   private applyInclude(row: any, include: any, model: string): any {

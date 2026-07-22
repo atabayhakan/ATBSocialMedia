@@ -78,7 +78,7 @@ async function chatCompletion(
   return chatWithProvider(systemProvider(), [{ role: 'user', content: prompt }], opts);
 }
 
-async function chatJson(prompt: string, temperature: number): Promise<any | null> {
+export async function chatJson(prompt: string, temperature: number): Promise<any | null> {
   const raw = await chatCompletion(prompt, { temperature, json: true });
   if (!raw) return null;
   try {
