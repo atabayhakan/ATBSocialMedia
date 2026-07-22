@@ -112,7 +112,7 @@ export default function SocialPage() {
         externalId: form.externalId.trim(),
         accessToken: form.accessToken.trim() || undefined,
         refreshToken: form.refreshToken.trim() || undefined,
-        expiresAt,
+        expiresAt: expiresAt || undefined,
       };
       if (editingId) {
         await api.put(`/api/social/accounts/${editingId}`, body);

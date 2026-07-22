@@ -10,8 +10,8 @@ const createAccountSchema = z.object({
   accountName: z.string().min(1),
   externalId: z.string().min(1),
   accessToken: z.string().min(1),
-  refreshToken: z.string().optional(),
-  expiresAt: z.string().optional(),
+  refreshToken: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
   meta: z.record(z.any()).optional(),
 });
 
