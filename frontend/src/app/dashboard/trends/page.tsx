@@ -117,7 +117,7 @@ export default function TrendsPage() {
       <Tabs defaultValue="signals">
         <TabsList>
           <TabsTrigger value="signals">Sinyaller</TabsTrigger>
-          <TabsTrigger value="briefings">Briefing'ler</TabsTrigger>
+          <TabsTrigger value="briefings">Briefing’ler</TabsTrigger>
         </TabsList>
 
         <TabsContent value="signals" className="space-y-4">
@@ -163,7 +163,7 @@ export default function TrendsPage() {
           {signals.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                Henüz sinyal yok. "Haber Akışını Tara"ya bas veya manuel ekle.
+                Henüz sinyal yok. “Haber Akışını Tara”ya bas veya manuel ekle.
               </CardContent>
             </Card>
           )}

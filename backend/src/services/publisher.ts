@@ -393,7 +393,7 @@ async function publishInstagram(target: any): Promise<string> {
   // Localhost/göreli URL'leri genel erişimli domain'e (https://www.sponsorify.tech) dönüştür
   let imageUrl = target.post.mediaUrls[0];
   if (imageUrl.startsWith('http://localhost') || imageUrl.startsWith('http://127.0.0.1') || imageUrl.startsWith('/')) {
-    const cleanPath = imageUrl.replace(/^https?:\/\/[^\/]+/, '');
+    const cleanPath = imageUrl.replace(/^https?:\/\/[^/]+/, '');
     const baseUrl = env.MEDIA_BASE_URL || env.APP_URL || 'https://www.sponsorify.tech';
     imageUrl = `${baseUrl.replace(/\/$/, '')}${cleanPath}`;
   }
